@@ -25,6 +25,7 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 - 只有用户明确指定 JavaScript（例如「用 JS」「降级为 JavaScript」）时，才使用 `.js` 源文件或本 skill 中的 JavaScript fallback 模板。未明确指定时，不得因为示例、历史插件或个人习惯默认回退 JS。
 - 选择 JavaScript fallback 时，必须在实现说明中注明是用户明确指定的例外；不得把 fallback 模板反向当成默认脚手架。
 - TypeScript 不是把类型随意补在 JS 上：先确定 `tsconfig.json`、源码目录、构建产物目录和 `build`/`prepack` 脚本，再开始写实现；提交/打包前确认 `pnpm build` 能从干净安装产出所有 `lib/*.js`。
+- **模块范式（Host 半区强制 ESM）**：`package.json` 必须带 `"type": "module"`，Host 侧 `lib/*.js`（无论 TS 编译产物还是 JS 降级源码）一律使用 `import`/`export`，**禁止**顶层 `require(...)` 与 `module.exports`。`require is not defined` 与 `'import'/'export' cannot be used outside module code` 这两条报错都来自 Host 文件 CJS/ESM 范式错配——前者是 ESM 文件里用了 `require`，后者是 `import/export` 被 Node 当成 CJS 加载（缺 `type:module` 或扩展名不对）。**唯一允许 `require` 的地方**是 Client bundle 的 `window.__ModuleLoader__.load({ factory: (require) => {...} })` 参数作用域，那是宿主注入的运行时，`require` 只在该闭包内有效，不能泄漏到 Host 文件。
 
 ## 工作流
 
@@ -89,6 +90,7 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 5. **自动化路径悄悄具备破坏性**：任何事件驱动/定时触发的自动路径，只要有「万一失控就会删数据」的分支（比如 autoPurge 开关），默认必须关闭且要在 review 里明确问「这个自动路径能不能被动词『删除/清理/覆盖』描述」。
 6. **测试断言过宽**：只断言 `includes('--readonly')` 而不断言完整参数数组，会让「参数顺序错了但凭空包含了关键字」的 bug 溜过去。断言精确的完整数组/对象，别用宽松的 `includes`/`some`。
 7. **测试命令本身跑不起来**：`package.json` 里 `scripts.test` 写的 glob/路径要在干净 checkout 里实测一次，不要只信任本地缓存状态。
+8. **模块范式错配**：`package.json` 必须 `"type": "module"`；Host 侧 `lib/*.js` 用 `import`/`export`，不得有顶层 `require`/`module.exports`；Client bundle 的 `require` 只允许出现在 `window.__ModuleLoader__.load` 的 `factory` 闭包内。一见 `ReferenceError: require is not defined` 或 `'import'/'export' cannot be used outside module code` 即判定为 Host 文件 CJS/ESM 错配，不要去改逻辑、先对齐 `type` 与语法。若用户明确走 JS 降级，仍遵守 ESM 约束（用 `.js` + `type:module`，不是 `.cjs`/`module.exports`）。
 
 ## 第 8 步：CHANGELOG + 版本
 

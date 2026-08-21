@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "description": "<一句话描述插件做什么，谁用>",
   "type": "module",
+  // ⚠️ Host 半区强制 ESM：lib/*.js 一律 import/export，禁止顶层 require/module.exports。
+  //    唯一允许 require 的是 Client bundle 的 window.__ModuleLoader__.load({ factory: (require) => {...} }) 闭包。
   "main": "lib/index.js",
   "exports": {
     ".": { "default": "./lib/index.js" },
