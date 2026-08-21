@@ -1,0 +1,11 @@
+# 依赖与构建产物
+node_modules/
+lib/
+*.tsbuildinfo
+
+# 本地安装包（仅发布时按需 git add -f）
+*.tgz
+
+# 编辑器与系统文件
+.DS_Store
+*.log

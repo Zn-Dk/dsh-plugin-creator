@@ -1,0 +1,38 @@
+{
+  "name": "dsh-<plugin-name>",
+  "version": "0.1.0",
+  "description": "<一句话描述插件做什么，谁用>",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": { "default": "./lib/index.js" },
+    "./client": { "default": "./lib/client.js" },
+    "./package.json": "./package.json"
+  },
+  "files": ["lib", "cordis.patch.yml", "README.md", "CHANGELOG.md"],
+  "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://<你的仓库地址>.git" },
+  "publishConfig": { "access": "public" },
+  "engines": { "node": ">=20" },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "inject": ["@deepseek-ai/dsh-client-runtime", "@deepseek-ai/dsh-client-connection"],
+      "platform": "web"
+    }
+  },
+  "peerDependencies": {
+    "<依赖的其他插件公共 API>": ">=<版本约束>"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepack": "pnpm build",
+    "test": "tsx --test test/*.test.ts",
+    "pack": "pnpm pack"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,0 +1,9 @@
+# <plugin-name> bundle patch.
+# `dsh plugin --profile web add <path-or-tgz>` installs the package and
+# appends it to dsh.profile.bundles, applying this layer.
+- insert:
+    - id: <plugin-name>
+      name: dsh-<plugin-name>
+      config:
+        # 只放安全的默认值，不放本机/开发机绝对路径
+        # exampleOption: 0.5

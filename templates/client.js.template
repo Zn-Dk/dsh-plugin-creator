@@ -1,0 +1,106 @@
+/**
+ * <plugin-name> 客户端 bundle。
+ * 通过 settings.section slot 注册一个设置卡片。
+ * 排版对齐 DSH Web 宿主设置卡片的视觉规范，
+ * 见 dsh-plugin-creator skill 的 reference/CLIENT_BUNDLE.md。
+ */
+window.__ModuleLoader__.load({
+  id: "<plugin-name>",
+  factory: (require) => {
+    const bundleModule = { exports: {} }
+    Object.defineProperty(bundleModule.exports, Symbol.toStringTag, { value: "Module" })
+    const react = require("react")
+    const jsx = require("react/jsx-runtime").jsx
+
+    const SETTINGS_CHANNEL = "/<plugin-name>-settings"
+
+    const css = [
+      ".plg_page{box-sizing:border-box;width:100%;min-width:0;max-width:720px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:28px;padding-bottom:28px;font-family:inherit;display:flex}",
+      ".plg_page *{box-sizing:border-box}",
+      ".plg_pageHeader h1{color:var(--dsw-alias-label-primary);margin:0;font-size:16px;font-weight:500;line-height:24px}",
+      ".plg_pageHeader p{max-width:64ch;color:var(--dsw-alias-label-tertiary);margin:8px 0 0;font-size:14px;line-height:22px}",
+      ".plg_section{flex-direction:column;gap:12px;min-width:0;display:flex}",
+      ".plg_sectionHeading h2{color:var(--dsw-alias-label-primary);margin:0;font-size:14px;font-weight:500;line-height:22px}",
+      ".plg_sectionHeading p{max-width:66ch;color:var(--dsw-alias-label-tertiary);margin:1px 0 0;font-size:12px;line-height:18px}",
+      ".plg_fieldGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;min-width:0;display:grid}",
+      ".plg_fieldGrid>label{min-width:0;color:var(--dsw-alias-label-secondary);flex-direction:column;gap:4px;font-size:10px;line-height:16px;display:flex}",
+      ".plg_fieldGrid>label>input{border:1px solid var(--dsw-alias-border-l2);width:100%;min-width:0;height:36px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-3);font:inherit;border-radius:9px;outline:none;padding:0 10px;font-size:12px}",
+      ".plg_fieldGrid>label>small{color:var(--dsw-alias-label-tertiary);font-size:10px;line-height:16px}",
+      ".plg_status{color:var(--dsw-alias-state-error-primary);margin:0;font-size:12px;line-height:18px}",
+      ".plg_pending{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px;line-height:18px}",
+    ].join("")
+
+    if (typeof document !== "undefined") {
+      const tagId = "<plugin-name>/src/client.css"
+      if (document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
+        const tag = document.createElement("style")
+        tag.dataset.pluginCss = tagId
+        tag.textContent = css
+        document.head.appendChild(tag)
+      }
+    }
+
+    /** 单字段输入：本地草稿，blur/Enter 才提交（不要每次按键都打 RPC）。 */
+    function FieldInput({ field, value, disabled, onCommit }) {
+      const initial = value === undefined || value === null ? "" : String(value)
+      const [draft, setDraft] = react.useState(initial)
+      react.useEffect(() => { setDraft(initial) }, [initial])
+      const commit = () => { if (draft !== initial) onCommit(field.key, field.isNumber ? Number(draft) : draft) }
+      return jsx("input", {
+        type: field.isNumber ? "number" : "text",
+        value: draft, disabled,
+        onChange: (e) => setDraft(e.target.value),
+        onBlur: commit,
+        onKeyDown: (e) => { if (e.key === "Enter") commit() },
+      })
+    }
+
+    function SettingsCard({ connection }) {
+      const [snapshot, setSnapshot] = react.useState(null)
+      const [error, setError] = react.useState(null)
+
+      react.useEffect(() => {
+        connection.rpc.call(SETTINGS_CHANNEL, "get", {})
+          .then((res) => { if (res.ok) setSnapshot(res.value); else setError(res.error.message) })
+          .catch((e) => setError(String(e)))
+      }, [connection])
+
+      const saveField = async (key, value) => {
+        const res = await connection.rpc.call(SETTINGS_CHANNEL, "mutate", {
+          ops: [{ op: "set", path: [key], value }],
+          ...(snapshot?.revision === undefined ? {} : { expectedRevision: snapshot.revision }),
+        })
+        if (res.ok) setSnapshot(res.value); else setError(res.error.message)
+      }
+
+      if (snapshot?.status === "unavailable") {
+        return jsx("p", { className: "plg_status", children: "设置通道不可用：宿主未加载本插件。" })
+      }
+
+      // TODO: 按你的字段列表渲染 .plg_pageHeader / .plg_section / .plg_fieldGrid
+      return jsx("div", { className: "plg_page", children: [
+        jsx("div", { className: "plg_pageHeader", children: [
+          jsx("h1", { children: "<插件显示名>" }),
+          jsx("p", { children: "<一句话说明>" }),
+        ] }),
+        error ? jsx("p", { className: "plg_status", children: error }) : null,
+      ] })
+    }
+
+    const inject = ["slots", "connection"]
+
+    function apply(ctx) {
+      ctx.slots.inject("settings.section", () => ctx.slots.register({
+        name: "settings.section",
+        id: "<plugin-name>",
+        order: 20.5, // 调整避免与其他插件撞车
+        label: () => "<插件显示名>",
+        inject: () => ({ connection: ctx.connection }),
+      }, SettingsCard)) // ⚠️ 传函数本身，不要 () => jsx(SettingsCard, null) 包一层
+    }
+
+    bundleModule.exports.apply = apply
+    bundleModule.exports.inject = inject
+    return bundleModule.exports
+  },
+})
