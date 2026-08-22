@@ -11,6 +11,7 @@
 - **装配 Host 半区**：事件监听、工具、命令、settings namespace，并规避事件模型与生命周期泄漏等高频错误。
 - **装配 Client 半区**：通过 settings RPC 桥接把 Host 配置暴露到 Web 设置页，并复用宿主视觉规范。
 - **测试与发布**：TDD seam 划分、构建产物校验、pnpm pack + tgz 安装、CHANGELOG 演进。
+- **收录**：发布后进 awesome-dsh-plugin 的门槛与 PR 流程（见 reference/AWESOME_LISTING.md）。
 
 ## 快速开始
 

@@ -39,6 +39,7 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 - [ ] 第 6 步：安装验证（pnpm install → pnpm build → pnpm pack + tgz 安装，不用 link:）
 - [ ] 第 7 步：code review（至少 2 轮，见「必查清单」）
 - [ ] 第 8 步：CHANGELOG + 版本号 + commit
+- [ ] 第 9 步（可选）：发布后收录 awesome-dsh-plugin（见 reference/AWESOME_LISTING.md）
 ```
 
 ## 第 2 步：package.json / cordis.patch.yml 骨架
@@ -98,6 +99,7 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 - 每次面向用户的变更分级记录：`新增`（feature）/`修复`（fix）/`变更`（breaking/chore），同步递增 `package.json` 的 `version`。
 - 首个 MVP 版本可以是 `0.1.0`，把这一轮做的全部 feature 列进同一个版本条目，不用为内部迭代（比如 code review 修复）单独开版本号——只有**发布/验收节点**才切版本。
 - `package.json` 的 `files` 数组要包含 `CHANGELOG.md`。
+- 发布验收通过后若想进 awesome-dsh-plugin，见 [reference/AWESOME_LISTING.md](reference/AWESOME_LISTING.md)。
 
 ## 参考文件
 
@@ -106,6 +108,7 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 - [reference/RELEASE_WORKFLOW.md](reference/RELEASE_WORKFLOW.md) —— pnpm pack + tgz 直链安装、CHANGELOG 模板
 - [reference/TDD_SEAMS.md](reference/TDD_SEAMS.md) —— 插件适用的 TDD seam 划分方式（引擎/适配层/编排层 vs 装配层）
 - [reference/LLM_SEMANTIC_LAYER.md](reference/LLM_SEMANTIC_LAYER.md) —— 插件内嵌 LLM 语义判定（初筛→prompt→子代理→解析）
+- [reference/AWESOME_LISTING.md](reference/AWESOME_LISTING.md) —— 发布后收录 awesome-dsh-plugin 的门槛、PR 格式与 CI 判定
 - [templates/](templates/) —— package.json / tsconfig.json / cordis.patch.yml 骨架（默认 TypeScript）；client.js.template 仅供用户明确指定 JavaScript 时使用
 
 ## 设计目标
