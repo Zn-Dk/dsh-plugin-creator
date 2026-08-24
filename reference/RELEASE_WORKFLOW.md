@@ -65,3 +65,45 @@ dsh plugin --profile web add https://<host>/<org>/<repo>/raw/<tag>/<name>-<versi
 ## 首个 MVP 版本的特殊处理
 
 第一个可验收版本可以直接是 `0.1.0`（不是 `0.0.1`），把这一整轮开发做的全部 feature 列进同一个条目——不需要为「引擎」「适配层」「装配层」「GUI」这些开发阶段分别开版本号；CHANGELOG 只记录**面向用户可见的能力**。
+
+## Git tag + GitHub Release（发布后必做）
+
+npm 发布 + 收录渠道都完成还不够——**GitHub 仓库也要补 tag 和 Release**，否则 Release 页是空的，用户从 awesome 列表点进来没有版本锚点。
+
+### tag 规则
+
+- **版本一致**：tag 名与 npm 版本一致，加 `v` 前缀（`v0.6.2`）。
+- **annotated tag**：用 `git tag -a`（带 message），不要轻量 tag。
+- **指向发布版本最终 commit**：如果同一版本有多个 commit（比如补丁、文档修正），tag 打在该版本的**最终状态**上（通常是最新一个带该版本号的 commit，或该版本最后一个变更）。
+- **只给可用版本打 tag**：早期不可用程度大的版本不打 tag（例如 0.5.0 之前），从第一个可用版本开始——避免 Release 列表出现"装了会坏"的入口。
+
+### 命令序列
+
+```sh
+# 1) 打 tag（annotated）
+git tag -a v0.6.2 -m "Release v0.6.2" <commit-sha>
+
+# 2) 推送 main + tags
+git push origin main --tags
+
+# 3) 创建 GitHub Release（用 GitHub API，token 从凭证文件读，不落盘不打印）
+#    POST /repos/<owner>/<repo>/releases
+#    { tag_name: "v0.6.2", target_commitish: "<sha>", name: "<pkg> v0.6.2", body: "<CHANGELOG 摘录>", draft: false, prerelease: false }
+```
+
+### Release 正文
+
+- 摘录 CHANGELOG 对应版本条目（含中英摘要，如果 CHANGELOG 是双语）。
+- 附 npm 包链接 + GitHub 仓库链接 + 已收录渠道。
+- 不写死"当前最新版本号"之类的过期文案，用链接代替。
+
+### 历史版本策略
+
+- **只给最新版本建 Release**，历史版本只打 tag（不逐一建 Release，避免刷屏）。
+- 需要时随时可给已有 tag 补建 Release。
+
+### README 同步
+
+发布/收录后更新 README 的 `Release & listing` 段：
+- npm 链接、GitHub 链接、**Releases 链接**（https://github.com/<owner>/<repo>/releases）
+- 已收录渠道（awesome-dsh-plugin 等）用链接，不写死版本号。

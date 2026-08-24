@@ -58,7 +58,8 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 - [ ] 第 6 步：安装验证（pnpm install → pnpm build → pnpm pack + tgz 安装，不用 link:）
 - [ ] 第 7 步：code review（至少 2 轮，见「必查清单」）
 - [ ] 第 8 步：CHANGELOG + 版本号 + commit
-- [ ] 第 9 步（可选）：发布后收录（主渠道 awesome-dsh-plugin，可选追加两个社区 awesome 列表；见 reference/AWESOME_LISTING.md）
+- [ ] 第 9 步：Git tag + GitHub Release（见第 9 步说明与 reference/RELEASE_WORKFLOW.md）
+- [ ] 第 10 步（可选）：发布后收录（主渠道 awesome-dsh-plugin，可选追加两个社区 awesome 列表；见 reference/AWESOME_LISTING.md）
 ```
 
 ## 第 2 步：package.json / cordis.patch.yml 骨架
@@ -119,6 +120,19 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 - 首个 MVP 版本可以是 `0.1.0`，把这一轮做的全部 feature 列进同一个版本条目，不用为内部迭代（比如 code review 修复）单独开版本号——只有**发布/验收节点**才切版本。
 - `package.json` 的 `files` 数组要包含 `CHANGELOG.md`。
 - 发布验收通过后按渠道策略收录：主渠道 awesome-dsh-plugin，可选追加 0xsline/awesome-deepseek-harness 与 AdamPlatin123/awesome-dsh-plugins；完整门槛、PR 格式与多仓库一致性见 [reference/AWESOME_LISTING.md](reference/AWESOME_LISTING.md)。
+
+## 第 9 步：Git tag + GitHub Release
+
+- **tag 版本**：与 npm 版本一致，用 `v` 前缀（`v0.6.2`），annotated tag（`git tag -a v0.6.2 -m "Release v0.6.2"`），指向发布版本的最终 commit。
+- **只给可用版本打 tag**：早期不可用程度大的版本（如 0.5.0 之前）不打 tag，从第一个可用版本开始；避免在 Release 列表里留下"装了会坏"的入口。
+- **创建 Release**：用 GitHub API 或 CLI 为最新 tag 创建 Release（name 用 `<pkg> v<version>`），正文摘 CHANGELOG 对应条目（含中英摘要），附 npm 包链接；历史版本只打 tag，不逐一建 Release（避免刷屏，需要时再补）。
+- **命令序列**：
+  ```sh
+  git tag -a v<version> -m "Release v<version>" <commit-sha>
+  git push origin main --tags
+  # 然后 GitHub API 创建 Release（tag_name/v target_commitish/name/body/draft:false）
+  ```
+- **README 收录段**：发布/收录后同步更新 README 的 `Release & listing` 段（npm 链接 + Releases 链接 + 已收录渠道），不要写死版本号，用 link 指向包/Release 页面。
 
 ## 参考文件
 
