@@ -47,16 +47,19 @@ ctx.inject(['connection'], (webContext) => {
 
 `lib/client.js` **不是普通 ES module**，是宿主注入的模块加载器格式：
 
+**只能 require 种子白名单（共 7 词）**：`react`、`react/jsx-runtime`、`react-dom`、`react-dom/client`、`@deepseek-ai/cordis`、`@deepseek-ai/dsh-client-ui-slots`、`@deepseek-ai/dsh-client-ui-primitives`；另有 preload 词 `@deepseek-ai/dsh-client-runtime/client`（走 inject 注入，不是 require）。其余 npm 包一律不能 require。⚠️ 不要照抄 dsh-session-explorer build-client.mjs 的 EXTERNALS（含 `@deepseek-ai/dsh-client-web-react`、`@deepseek-ai/dsh-client-ui-attachment`、`@deepseek-ai/dsh-client-schema-form` 等残留词，非种子词，运行时 require 会 miss）。各种子包的重点导出、primitives 组件清单与用法见 [UI_COMPONENTS.md](UI_COMPONENTS.md)。
+
 ```js
 window.__ModuleLoader__.load({
   id: "my-plugin",
   factory: (require) => {
     const bundleModule = { exports: {} }
     Object.defineProperty(bundleModule.exports, Symbol.toStringTag, { value: "Module" })
-    const react = require("react")                              // ✅ 允许
-    const jsx = require("react/jsx-runtime").jsx                 // ✅ 允许
-    const primitives = require("@deepseek-ai/dsh-client-ui-primitives") // ✅ 允许
-    // require("lodash") 之类任意第三方包 —— ❌ 不允许，构建时不会打包进去
+    const react = require("react")                              // ✅ 种子词
+    const jsx = require("react/jsx-runtime").jsx                 // ✅ 种子词
+    const reactDomClient = require("react-dom/client")           // ✅ 种子词
+    const { Tooltip } = require("@deepseek-ai/dsh-client-ui-primitives") // ✅ 种子词（官方组件库）
+    // require("lodash") / require("@deepseek-ai/dsh-client-web-react") 等 —— ❌ 不允许（非种子词，构建时不会打包进去）
 
     function SettingsCard({ connection }) { /* React 组件 */ }
 

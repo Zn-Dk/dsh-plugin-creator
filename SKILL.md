@@ -89,8 +89,9 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 
 一句话摘要：
 - `ctx.settings.register` 只解决 Host 侧持久化，**不会**自动出现在 Web 设置页；要有 GUI 卡片，必须额外：① Host 侧注册一个自定义 RPC 通道（`connection.rpc.handle(CHANNEL, handler)`）把 settings 的 get/mutate 包装成 client 可调用的接口；② Client 侧写 bundle 用 `ctx.slots.inject("settings.section", ...)` 注册卡片，卡片内部走这个 RPC 通道读写。
-- Client bundle 是 `window.__ModuleLoader__.load({ id, factory: require => {...} })` 格式，**只能 require 白名单种子**：`react`、`react/jsx-runtime`、`@deepseek-ai/dsh-client-ui-primitives`。不能 import 任意 npm 包。
+- Client bundle 是 `window.__ModuleLoader__.load({ id, factory: require => {...} })` 格式，**只能 require 种子白名单（共 7 词）**：`react`、`react/jsx-runtime`、`react-dom`、`react-dom/client`、`@deepseek-ai/cordis`、`@deepseek-ai/dsh-client-ui-slots`、`@deepseek-ai/dsh-client-ui-primitives`。不能 import 任意 npm 包。
 - slot 注册要传**组件函数本身**，不要用 `() => jsx(Component, null)` 包一层——那样面板会空白或崩溃。
+- **UI 一律优先复用官方组件，禁止重复造轮子（强制）**：Client bundle 里要悬浮提示/弹窗/按钮/输入框/图标/开关等，先查 [reference/UI_COMPONENTS.md](reference/UI_COMPONENTS.md) 找官方 `@deepseek-ai/dsh-client-ui-primitives` 等种子组件；只有官方组件里找不到才允许自写 CSS，且必须在代码注释或 review 里记录理由。教训：dsh-session-explorer 的 Tooltip 迭代多个版本才用上官方 Tooltip。
 - **排版不要凭感觉写 inline style**——应检查当前 DSH Web 宿主已有设置卡片的编译产物，提取其 CSS class 与 `page/section/sectionHeading/字段网格` 间距规范，逐项对齐。优先复用宿主视觉语言，而不是凭感觉调数值。
 
 ## 第 6 步：安装验证 —— 高频踩坑
@@ -112,6 +113,7 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 6. **测试断言过宽**：只断言 `includes('--readonly')` 而不断言完整参数数组，会让「参数顺序错了但凭空包含了关键字」的 bug 溜过去。断言精确的完整数组/对象，别用宽松的 `includes`/`some`。
 7. **测试命令本身跑不起来**：`package.json` 里 `scripts.test` 写的 glob/路径要在干净 checkout 里实测一次，不要只信任本地缓存状态。
 8. **模块范式错配**：`package.json` 必须 `"type": "module"`；Host 侧 `lib/*.js` 用 `import`/`export`，不得有顶层 `require`/`module.exports`；Client bundle 的 `require` 只允许出现在 `window.__ModuleLoader__.load` 的 `factory` 闭包内。一见 `ReferenceError: require is not defined` 或 `'import'/'export' cannot be used outside module code` 即判定为 Host 文件 CJS/ESM 错配，不要去改逻辑、先对齐 `type` 与语法。若用户明确走 JS 降级，仍遵守 ESM 约束（用 `.js` + `type:module`，不是 `.cjs`/`module.exports`）。
+9. **GUI 组件未优先用官方组件**：Client 侧的 Tooltip/Modal/Button/Input/Icon/Toast 等是否先查了 [reference/UI_COMPONENTS.md](reference/UI_COMPONENTS.md) 的官方清单？自造组件必须能说出理由（官方没有对应物 / 官方组件不满足需求），说不出来的一律改用官方组件。
 
 ## 第 8 步：CHANGELOG + 版本
 
@@ -138,6 +140,7 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 
 - [reference/EVENT_MODEL.md](reference/EVENT_MODEL.md) —— DSH agent 事件模型完整细节（全局 vs per-agent，effect 生命周期）
 - [reference/CLIENT_BUNDLE.md](reference/CLIENT_BUNDLE.md) —— client bundle 格式、settings RPC 桥接、GUI 排版规范提取方法
+- [reference/UI_COMPONENTS.md](reference/UI_COMPONENTS.md) —— 官方 client UI 组件目录（可 require 种子包、primitives 组件清单、优先用官方组件的决策规则）
 - [reference/RELEASE_WORKFLOW.md](reference/RELEASE_WORKFLOW.md) —— pnpm pack + tgz 直链安装、CHANGELOG 模板
 - [reference/TDD_SEAMS.md](reference/TDD_SEAMS.md) —— 插件适用的 TDD seam 划分方式（引擎/适配层/编排层 vs 装配层）
 - [reference/LLM_SEMANTIC_LAYER.md](reference/LLM_SEMANTIC_LAYER.md) —— 插件内嵌 LLM 语义判定（初筛→prompt→子代理→解析）
