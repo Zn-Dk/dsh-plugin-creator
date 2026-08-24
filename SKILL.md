@@ -31,9 +31,20 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 
 - **默认只做中英双语**（zh-CN + en）。不引入更多语言，除非用户明确要求。
 - **时机**：MVP 版本之后，在迭代中做。首版 MVP 可单语言（中文优先），但 **P1 TODO（重要但不紧急）**——在迭代 backlog 中保留 i18n 条目，不要拖到发布后才想起来。
-- **GUI 文案语言来源**：跟随 DSH Web UI 当前语言（检测 `navigator.language` / `document.documentElement.lang`，宿主英文→英文，中文→中文），**不做手动语言设置项**（零配置，符合直觉）。除非用户明确要求设置项。
-- **范围**：用户可见文案全覆盖——GUI（Client bundle 的按钮/标题/对话框/提示）、README（双语）、CHANGELOG（双语或按版本语言）。Host 侧错误消息/工具描述/Skill 正文建议直接英文（面向 agent 与开发者，天然中英通用）。
-- **实现方式**：Client bundle 内置 `zh`/`en` 两个文案表（`const I18N = { zh: {...}, en: {...} }`），运行时按当前语言取表；不要在 JSX 里散落中文字符串字面量。
+- **GUI 文案语言来源：读 Host locale 服务（`ctx.get('locale')`），不是 `navigator.language`**。DSH Web 的语言偏好存在 Host settings `locale.preference`（zh/en，缺省回退浏览器）；`navigator.language` 是浏览器语言，**不会**跟随 DSH Web UI 的切换（用户切 English 后它仍是 zh-CN）。正确接入：
+  - `apply(ctx)` 里 `const svc = ctx.get('locale')`（client ctx 有 `get`）
+  - `svc.register('你的命名空间', { zh: {...}, en: {...} })` 注册文案表
+  - `const t = svc.bind('你的命名空间')` 翻译（支持 `{var}` 占位符；查不到键时返回 key 本身）
+  - 响应切换：`React.useSyncExternalStore(svc.subscribe, () => svc.getLocale().active, ...)` 订阅语言变化，组件内 `t()` 每次渲染重新求值
+  - locale 服务不可用时（兜底）：回退 `navigator.language` + 内置 I18N 表（同一套键）
+- **不做手动语言设置项**（零配置，符合直觉），除非用户明确要求。
+- **范围**：用户可见文案全覆盖——GUI（Client bundle 的按钮/标题/对话框/提示/标点/分隔符）、README（双语）、CHANGELOG（双语或按版本语言）。Host 侧错误消息/工具描述/Skill 正文建议直接英文（面向 agent 与开发者，天然中英通用）。
+- **实现要点**：
+  - Client bundle 内置 `I18N = { zh: {...}, en: {...} }` 文案表（键集合必须完全对齐，zh/en 一一对应），JSX 不散落中文字符串字面量。
+  - **标点与分隔符也是文案**：`joinEnd`/`sentenceEnd`/`seqSep` 等进 I18N 表（中文 `；。` vs 英文 `; .`），不要硬编码在代码里。
+  - 有参数的模板用 `{name}` 占位符，zh/en 的占位符集合必须一致。
+  - 静态自检：抽取 I18N 对象验证 zh/en 键集合一致、所有 `t('key')` 引用都命中、模板占位符一致、字典外零中文字符串。
+- **发布纪律**：GUI i18n 改动必须在 dsh web 真机验证（语言切换生效）后才能发布版本；未验证不发布（见第 6/7 步与必查清单）。
 
 ## 工作流
 

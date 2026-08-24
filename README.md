@@ -41,8 +41,9 @@ dsh-plugin-creator/
 ## 国际化（i18n）约定
 
 - 默认只做**中英双语**（zh-CN + en），MVP 之后在迭代中作为 **P1 TODO** 完成。
-- GUI 文案语言**跟随 DSH Web UI 当前语言**（navigator.language / document.documentElement.lang），零配置，不做手动设置项。
-- Client bundle 内置 zh/en 文案表（`I18N = { zh: {...}, en: {...} }`），JSX 不散落中文字符串。
+- GUI 文案语言**读 Host locale 服务**（`ctx.get('locale')` → `register`/`bind`/`subscribe`，跟随 `locale.preference`），**不是 `navigator.language`**（浏览器语言不跟随 DSH Web UI 切换）；locale 不可用时兜底浏览器检测。
+- 零配置，不做手动设置项。响应切换用 `React.useSyncExternalStore` 订阅。
+- Client bundle 内置 zh/en 文案表（`I18N = { zh: {...}, en: {...} }`），JSX 不散落中文字符串；标点/分隔符也 i18n 化。
 
 ## 适用对象
 
