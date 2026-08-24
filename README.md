@@ -38,6 +38,12 @@ dsh-plugin-creator/
 - 新插件代码**首选 TypeScript**：源码放在 src/，通过 tsc 输出 lib/，DSH 运行时加载编译后的 lib/*.js。
 - 只有明确要求使用 JavaScript 时，才改用 templates/client.js.template 等 JS 模板。
 
+## 国际化（i18n）约定
+
+- 默认只做**中英双语**（zh-CN + en），MVP 之后在迭代中作为 **P1 TODO** 完成。
+- GUI 文案语言**跟随 DSH Web UI 当前语言**（navigator.language / document.documentElement.lang），零配置，不做手动设置项。
+- Client bundle 内置 zh/en 文案表（`I18N = { zh: {...}, en: {...} }`），JSX 不散落中文字符串。
+
 ## 适用对象
 
 面向 DSH cordis 插件开发者，尤其是需要 Web UI 设置卡片的插件。使用前建议先阅读 SKILL.md，并在需要细节时跳转 reference/ 对应专题。

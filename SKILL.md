@@ -27,6 +27,14 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 - TypeScript 不是把类型随意补在 JS 上：先确定 `tsconfig.json`、源码目录、构建产物目录和 `build`/`prepack` 脚本，再开始写实现；提交/打包前确认 `pnpm build` 能从干净安装产出所有 `lib/*.js`。
 - **模块范式（Host 半区强制 ESM）**：`package.json` 必须带 `"type": "module"`，Host 侧 `lib/*.js`（无论 TS 编译产物还是 JS 降级源码）一律使用 `import`/`export`，**禁止**顶层 `require(...)` 与 `module.exports`。`require is not defined` 与 `'import'/'export' cannot be used outside module code` 这两条报错都来自 Host 文件 CJS/ESM 范式错配——前者是 ESM 文件里用了 `require`，后者是 `import/export` 被 Node 当成 CJS 加载（缺 `type:module` 或扩展名不对）。**唯一允许 `require` 的地方**是 Client bundle 的 `window.__ModuleLoader__.load({ factory: (require) => {...} })` 参数作用域，那是宿主注入的运行时，`require` 只在该闭包内有效，不能泄漏到 Host 文件。
 
+## 国际化（i18n）约定（默认强制，P1 TODO）
+
+- **默认只做中英双语**（zh-CN + en）。不引入更多语言，除非用户明确要求。
+- **时机**：MVP 版本之后，在迭代中做。首版 MVP 可单语言（中文优先），但 **P1 TODO（重要但不紧急）**——在迭代 backlog 中保留 i18n 条目，不要拖到发布后才想起来。
+- **GUI 文案语言来源**：跟随 DSH Web UI 当前语言（检测 `navigator.language` / `document.documentElement.lang`，宿主英文→英文，中文→中文），**不做手动语言设置项**（零配置，符合直觉）。除非用户明确要求设置项。
+- **范围**：用户可见文案全覆盖——GUI（Client bundle 的按钮/标题/对话框/提示）、README（双语）、CHANGELOG（双语或按版本语言）。Host 侧错误消息/工具描述/Skill 正文建议直接英文（面向 agent 与开发者，天然中英通用）。
+- **实现方式**：Client bundle 内置 `zh`/`en` 两个文案表（`const I18N = { zh: {...}, en: {...} }`），运行时按当前语言取表；不要在 JSX 里散落中文字符串字面量。
+
 ## 工作流
 
 ```
