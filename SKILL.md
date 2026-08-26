@@ -1,6 +1,15 @@
 ---
 name: dsh-plugin-creator
-description: Scaffold and iterate a DSH (DeepSeek Harness) out-of-tree Web plugin — host half, client bundle, settings namespace, GUI card, tests, and release workflow. Use when the user wants to create, extend, or debug a DSH plugin (cordis-based), especially one with a Web UI settings card.
+description: Scaffold and iterate a DSH (DeepSeek Harness) out-of-tree Web plugin — host half, client bundle, settings namespace, GUI card, tests, release. Use to create, extend, or debug a cordis-based DSH plugin.
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Edit
+  - Write
+  - Bash
+execution-mode: generate
+tier: standard
 ---
 
 # DSH Plugin Creator
@@ -20,47 +29,24 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 
 ## 语言与构建约定（默认强制）
 
-- 新插件及后续插件代码**首选 TypeScript**：Host、纯逻辑层、测试辅助代码，以及 Client bundle 的源文件默认使用 `.ts` / `.tsx`。
-- DSH 运行时仍加载编译后的 JavaScript：TypeScript 源码放在 `src/`，通过 `tsc` 输出 `lib/`，`package.json` 的 `main` / `exports` 继续指向 `lib/*.js`；不要把未编译的 `.ts` 直接交给 DSH。
-- 只有用户明确指定 JavaScript（例如「用 JS」「降级为 JavaScript」）时，才使用 `.js` 源文件或本 skill 中的 JavaScript fallback 模板。未明确指定时，不得因为示例、历史插件或个人习惯默认回退 JS。
-- 选择 JavaScript fallback 时，必须在实现说明中注明是用户明确指定的例外；不得把 fallback 模板反向当成默认脚手架。
-- TypeScript 不是把类型随意补在 JS 上：先确定 `tsconfig.json`、源码目录、构建产物目录和 `build`/`prepack` 脚本，再开始写实现；提交/打包前确认 `pnpm build` 能从干净安装产出所有 `lib/*.js`。
-- **模块范式（Host 半区强制 ESM）**：`package.json` 必须带 `"type": "module"`，Host 侧 `lib/*.js`（无论 TS 编译产物还是 JS 降级源码）一律使用 `import`/`export`，**禁止**顶层 `require(...)` 与 `module.exports`。`require is not defined` 与 `'import'/'export' cannot be used outside module code` 这两条报错都来自 Host 文件 CJS/ESM 范式错配——前者是 ESM 文件里用了 `require`，后者是 `import/export` 被 Node 当成 CJS 加载（缺 `type:module` 或扩展名不对）。**唯一允许 `require` 的地方**是 Client bundle 的 `window.__ModuleLoader__.load({ factory: (require) => {...} })` 参数作用域，那是宿主注入的运行时，`require` 只在该闭包内有效，不能泄漏到 Host 文件。
+- **首选 TypeScript**：源码在 `src/`，`tsc` 编译到 `lib/`，`main`/`exports` 指向 `lib/*.js`。仅用户明确指定 JavaScript 时才降级，并在实现说明里注明例外。
+- **Host 半区强制 ESM**：`package.json` 带 `"type": "module"`，Host 侧用 `import`/`export`，禁顶层 `require`/`module.exports`。`require is not defined` 或 `'import'/'export' cannot be used outside module code` → 先对齐 `type` 与语法，不改业务逻辑。唯一允许 `require` 的是 Client bundle 的 `factory: (require) => {...}` 闭包。
+- 完整细则见 [reference/BUILD_CONVENTIONS.md](reference/BUILD_CONVENTIONS.md)。
 
 ## 国际化（i18n）约定（默认强制，P1 TODO）
 
-- **默认只做中英双语**（zh-CN + en）。不引入更多语言，除非用户明确要求。
-- **时机**：MVP 版本之后，在迭代中做。首版 MVP 可单语言（中文优先），但 **P1 TODO（重要但不紧急）**——在迭代 backlog 中保留 i18n 条目，不要拖到发布后才想起来。
-- **GUI 文案语言来源：读 Host locale 服务（`ctx.get('locale')`），不是 `navigator.language`**。DSH Web 的语言偏好存在 Host settings `locale.preference`（zh/en，缺省回退浏览器）；`navigator.language` 是浏览器语言，**不会**跟随 DSH Web UI 的切换（用户切 English 后它仍是 zh-CN）。正确接入：
-  - `apply(ctx)` 里 `const svc = ctx.get('locale')`（client ctx 有 `get`）
-  - `svc.register('你的命名空间', { zh: {...}, en: {...} })` 注册文案表
-  - `const t = svc.bind('你的命名空间')` 翻译（支持 `{var}` 占位符；查不到键时返回 key 本身）
-  - 响应切换：`React.useSyncExternalStore(svc.subscribe, () => svc.getLocale().active, ...)` 订阅语言变化，组件内 `t()` 每次渲染重新求值
-  - locale 服务不可用时（兜底）：回退 `navigator.language` + 内置 I18N 表（同一套键）
-- **不做手动语言设置项**（零配置，符合直觉），除非用户明确要求。
-- **范围**：用户可见文案全覆盖——GUI（Client bundle 的按钮/标题/对话框/提示/标点/分隔符）、README（双语）、CHANGELOG（双语或按版本语言）。Host 侧错误消息/工具描述/Skill 正文建议直接英文（面向 agent 与开发者，天然中英通用）。
-- **README 必须生成双语（强制，P0）**：README 是插件对外第一门面，禁止只写中文（或只写英文）。以下章节必须中英对照，缺一不可：
-  - 标题 + 一句话简介（中英各一句）
-  - 功能 / Features（逐条中英对照）
-  - 安装 / Install（命令块注释、说明段落中英对照）
-  - 开发 / Development（命令注释中英对照）
-  - 架构 / Architecture（每个条目中英对照）
-  - 已知限制 / Known limitations（逐条中英对照）
-  - 其他任何叙述性段落（配置说明、截图说明、FAQ 等）一律中英对照
-  - 格式惯例：章节标题用「中文 / English」双写；同一段落中文在上、英文在下，或「中文 / English」同行内联（仓库内保持一致即可）。
-  - **自检**：发布前通读 README，任何一段只有单一语言的正文（代码块、链接、包名除外）即为不合格，必须补全对照后再进第 8/9 步。
-- **实现要点**：
-  - Client bundle 内置 `I18N = { zh: {...}, en: {...} }` 文案表（键集合必须完全对齐，zh/en 一一对应），JSX 不散落中文字符串字面量。
-  - **标点与分隔符也是文案**：`joinEnd`/`sentenceEnd`/`seqSep` 等进 I18N 表（中文 `；。` vs 英文 `; .`），不要硬编码在代码里。
-  - 有参数的模板用 `{name}` 占位符，zh/en 的占位符集合必须一致。
-  - 静态自检：抽取 I18N 对象验证 zh/en 键集合一致、所有 `t('key')` 引用都命中、模板占位符一致、字典外零中文字符串。
-- **发布纪律**：GUI i18n 改动必须在 dsh web 真机验证（语言切换生效）后才能发布版本；未验证不发布（见第 6/7 步与必查清单）。
+- **默认只做中英双语**（zh-CN + en）；时机在 MVP 之后（P1 TODO，进 backlog，别拖到发布后）。
+- **GUI 文案读 Host locale 服务**（`ctx.get('locale')` → `register`/`bind`/`subscribe`），**不是 `navigator.language`**（浏览器语言不跟随 DSH Web UI 切换）；locale 不可用时兜底浏览器检测。不做手动语言设置项。
+- **README 必须双语（P0）**：功能/安装/开发/架构/已知限制等所有叙述性段落中英对照，单一语言段落即不合格，补全后再进第 8/9 步。
+- **实现要点**：Client bundle 内置 `I18N = { zh, en }`，键集 zh/en 一一对齐；标点/分隔符也 i18n 化；模板占位符集合一致；用 `scripts/check-i18n.mjs` 静态自检。
+- **发布纪律**：GUI i18n 改动必须在 dsh web 真机验证语言切换生效后才能发布。
+- 完整细则见 [reference/I18N.md](reference/I18N.md)。
 
 ## 工作流
 
 ```
 规划进度:
-- [ ] 第 1 步：确定范围（纯 Host？还是要 GUI？）
+- [ ] 第 1 步：确定范围（纯 Host？还是要 GUI？）；**要 GUI 时先向用户确认交互分区**（侧栏工具区 / 设置卡片 / shell.overlay / conversation 视图 tab / 其他），见 [reference/SLOTS.md](reference/SLOTS.md)
 - [ ] 第 2 步：脚手架 package.json + tsconfig.json + cordis.patch.yml（见 templates/；默认 TS）
 - [ ] 第 3 步：TDD 写纯逻辑层（引擎/适配层/编排层），装配层最后写
 - [ ] 第 4 步：Host 侧装配（事件监听、工具、命令、settings namespace）
@@ -82,6 +68,7 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 - `dsh.bundle.patch` 永远指向 `./cordis.patch.yml`。
 - `dsh.client`（仅 GUI 插件才需要）：`{ inject: [...], platform: "web" }`，inject 至少含 `@deepseek-ai/dsh-client-runtime`。
 - 依赖其他插件提供的公共 API 时用 `peerDependencies`，不要 `dependencies`——宿主 profile 会统一装好，重复声明会造成版本冲突或体积膨胀。
+- **`@deepseek-ai/*` 内部包（cordis/schemastery/dsh-settings 等）编译类型放 `devDependencies`（仅 tsc 用），运行时由宿主 profile hoist，不要放 `dependencies`/`peerDependencies`**（公共 npm 镜像装不到这些内部包，且重复声明会造成版本冲突）。`schemastery` 若作为运行时唯一来源可放 `dependencies`（参考 dsh-mnemon）。
 - 若插件运行时 `import` 了 `schemastery`/`zod` 等库而它们不是自己代码的运行时唯一来源（比如宿主已经装了同版本），也走 `peerDependencies`。
 
 ## 第 3-4 步：Host 侧装配 —— 高频踩坑
@@ -91,11 +78,11 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 一句话摘要：
 - `agent/created` 是**全局**事件（`ctx.on`）；`agent/turn-stopping` / `agent/status` / `agent/pre-step` 是**per-agent**事件，必须在 `agent.ctx.on` 上监听，不是全局 `ctx.on`。
 - per-agent 监听器要包在 `agent.ctx.effect(() => { ...; return cleanup })` 里，这样 agent 销毁时自动清理——**没有 `agent/disposed` 事件**，别指望订阅它做清理。
-- `ctx.settings.register(namespace, schema, {base, applies})` 对任何插件开放，不需要特殊权限；`base` 来自 `cordis.patch.yml` 的 `config`，`user` 层来自 `~/.dsh/settings.yaml` 的同名 section。这是「无 GUI 也能持久化配置+热更新」的最省事路径——**先用这个，GUI 是锦上添花，不是必需前提**。
+- `ctx.settings.register(ns, schema, {base, applies})` 对任何插件开放，不需要特殊权限；**schema 必须是 schemastery**（`import z from '@deepseek-ai/schemastery'` → `z.object({...})`，类型用 `Schemastery.TypeT<typeof schema>`，**不是 zod 的 `z.infer`**），**ns 用 `settingsNamespace()` 工厂**（lowercase kebab-case，来自 `@deepseek-ai/dsh-settings`）；`base` 来自 `cordis.patch.yml` 的 `config`，`user` 层来自 `~/.dsh/settings.yaml` 的同名 section。这是「无 GUI 也能持久化配置+热更新」的最省事路径——**先用这个，GUI 是锦上添花，不是必需前提**。
 
 ## 第 5 步：GUI 设置卡片 —— 高频踩坑
 
-**完整细节见 [reference/CLIENT_BUNDLE.md](reference/CLIENT_BUNDLE.md)。**
+**完整细节见 [reference/CLIENT_BUNDLE.md](reference/CLIENT_BUNDLE.md)；slot 选型与 GUI 交互分区清单见 [reference/SLOTS.md](reference/SLOTS.md)。**
 
 一句话摘要：
 - `ctx.settings.register` 只解决 Host 侧持久化，**不会**自动出现在 Web 设置页；要有 GUI 卡片，必须额外：① Host 侧注册一个自定义 RPC 通道（`connection.rpc.handle(CHANNEL, handler)`）把 settings 的 get/mutate 包装成 client 可调用的接口；② Client 侧写 bundle 用 `ctx.slots.inject("settings.section", ...)` 注册卡片，卡片内部走这个 RPC 通道读写。
@@ -149,6 +136,9 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 
 ## 参考文件
 
+- [reference/BUILD_CONVENTIONS.md](reference/BUILD_CONVENTIONS.md) —— 语言与构建约定完整细则（TS 默认、Host ESM 范式）
+- [reference/I18N.md](reference/I18N.md) —— 国际化完整细则（locale 服务接入、README 双语、实现要点）
+- [reference/SLOTS.md](reference/SLOTS.md) —— Client 可注入 slot 清单（GUI 交互分区、kind/scope、首选 slot 决策表）
 - [reference/EVENT_MODEL.md](reference/EVENT_MODEL.md) —— DSH agent 事件模型完整细节（全局 vs per-agent，effect 生命周期）
 - [reference/CLIENT_BUNDLE.md](reference/CLIENT_BUNDLE.md) —— client bundle 格式、settings RPC 桥接、GUI 排版规范提取方法
 - [reference/UI_COMPONENTS.md](reference/UI_COMPONENTS.md) —— 官方 client UI 组件目录（可 require 种子包、primitives 组件清单、优先用官方组件的决策规则）
@@ -157,6 +147,8 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 - [reference/LLM_SEMANTIC_LAYER.md](reference/LLM_SEMANTIC_LAYER.md) —— 插件内嵌 LLM 语义判定（初筛→prompt→子代理→解析）
 - [reference/AWESOME_LISTING.md](reference/AWESOME_LISTING.md) —— 发布后收录：awesome-dsh-plugin 主渠道 + 两个社区 awesome 列表的边界、门槛、PR 格式与 CI 判定
 - [templates/](templates/) —— package.json / tsconfig.json / cordis.patch.yml 骨架（默认 TypeScript）；client.js.template 仅供用户明确指定 JavaScript 时使用
+- [scripts/](scripts/) —— 确定性自检脚本：check-i18n / check-esm / check-checkout
+- [examples/minimal-plugin/](examples/minimal-plugin/) —— 最小可运行插件示例（Host + settings RPC + Client 卡片全链路）
 
 ## 设计目标
 

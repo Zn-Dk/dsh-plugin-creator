@@ -11,6 +11,8 @@
 - **装配 Host 半区**：事件监听、工具、命令、settings namespace，并规避事件模型与生命周期泄漏等高频错误。
 - **装配 Client 半区**：通过 settings RPC 桥接把 Host 配置暴露到 Web 设置页，并复用宿主视觉规范。
 - **测试与发布**：TDD seam 划分、构建产物校验、pnpm pack + tgz 安装、CHANGELOG 演进。
+- **GUI 交互分区**：settings 卡片、会话视图 tab、工具行、侧栏等 slot 选型（reference/SLOTS.md）。
+- **确定性自检**：i18n 键对齐、Host ESM 范式、干净 checkout 测试命令三套脚本（scripts/）。
 - **收录**：发布后进 awesome-dsh-plugin 的门槛与 PR 流程（见 reference/AWESOME_LISTING.md）。
 
 ## 快速开始
@@ -25,12 +27,19 @@
 dsh-plugin-creator/
 ├── SKILL.md                      # 主流程与必查清单
 ├── templates/                   # package.json / tsconfig.json / cordis.patch.yml / client.js 骨架
+├── scripts/                     # 确定性自检脚本：check-i18n / check-esm / check-checkout
+├── examples/minimal-plugin/     # 最小可运行插件示例（Host + settings RPC + Client 卡片）
 └── reference/                   # 各专题深度参考
+    ├── BUILD_CONVENTIONS.md     # 语言与构建约定：TS 默认、Host ESM 范式
+    ├── I18N.md                  # 国际化：locale 服务接入、README 双语、实现要点
+    ├── SLOTS.md                 # Client 可注入 slot 清单（GUI 交互分区）
     ├── EVENT_MODEL.md           # DSH agent 事件模型：全局 vs per-agent、effect 生命周期
     ├── CLIENT_BUNDLE.md         # client bundle 格式、settings RPC 桥接、GUI 排版规范
+    ├── UI_COMPONENTS.md         # 官方 client UI 组件目录（种子包、primitives 清单）
     ├── RELEASE_WORKFLOW.md      # pnpm pack + tgz 安装、CHANGELOG 模板
     ├── TDD_SEAMS.md             # 插件的 TDD seam 划分方式
-    └── LLM_SEMANTIC_LAYER.md    # 插件内嵌 LLM 语义判定（初筛->prompt->子代理->解析）
+    ├── LLM_SEMANTIC_LAYER.md    # 插件内嵌 LLM 语义判定（初筛->prompt->子代理->解析）
+    └── AWESOME_LISTING.md       # 发布后收录：主渠道 + 社区 awesome 列表
 ```
 
 ## 语言与构建约定

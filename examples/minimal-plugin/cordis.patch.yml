@@ -1,0 +1,7 @@
+# Minimal bundle patch: appends this plugin to dsh.profile.bundles.
+- insert:
+    - id: minimal
+      name: dsh-minimal-plugin
+      config:
+        # Safe defaults only — no dev-machine absolute paths.
+        greeting: "Hello"

@@ -1,8 +1,11 @@
 /**
  * <plugin-name> 客户端 bundle。
  * 通过 settings.section slot 注册一个设置卡片。
- * 排版对齐 DSH Web 宿主设置卡片的视觉规范，
- * 见 dsh-plugin-creator skill 的 reference/CLIENT_BUNDLE.md。
+ *
+ * 组件复用官方 @deepseek-ai/dsh-client-ui-primitives（见 reference/UI_COMPONENTS.md）：
+ * 输入框用 Input、按钮用 Button、悬浮提示用 Tooltip、弹窗用 Modal——
+ * 官方没有对应物时才允许自写，且必须在代码注释或 review 里记录理由。
+ * 排版对齐 DSH Web 宿主设置卡片的视觉规范，见 reference/CLIENT_BUNDLE.md。
  */
 window.__ModuleLoader__.load({
   id: "<plugin-name>",
@@ -11,9 +14,12 @@ window.__ModuleLoader__.load({
     Object.defineProperty(bundleModule.exports, Symbol.toStringTag, { value: "Module" })
     const react = require("react")
     const jsx = require("react/jsx-runtime").jsx
+    const { Input, Button } = require("@deepseek-ai/dsh-client-ui-primitives")
 
     const SETTINGS_CHANNEL = "/<plugin-name>-settings"
 
+    // 只保留「排版规范」类样式（从宿主设置卡片提取，见 CLIENT_BUNDLE.md）。
+    // 控件外观交给官方组件，不要在这里复刻 input/button 的皮肤。
     const css = [
       ".plg_page{box-sizing:border-box;width:100%;min-width:0;max-width:720px;color:var(--dsw-alias-label-primary);flex-direction:column;gap:28px;padding-bottom:28px;font-family:inherit;display:flex}",
       ".plg_page *{box-sizing:border-box}",
@@ -24,7 +30,6 @@ window.__ModuleLoader__.load({
       ".plg_sectionHeading p{max-width:66ch;color:var(--dsw-alias-label-tertiary);margin:1px 0 0;font-size:12px;line-height:18px}",
       ".plg_fieldGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;min-width:0;display:grid}",
       ".plg_fieldGrid>label{min-width:0;color:var(--dsw-alias-label-secondary);flex-direction:column;gap:4px;font-size:10px;line-height:16px;display:flex}",
-      ".plg_fieldGrid>label>input{border:1px solid var(--dsw-alias-border-l2);width:100%;min-width:0;height:36px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-3);font:inherit;border-radius:9px;outline:none;padding:0 10px;font-size:12px}",
       ".plg_fieldGrid>label>small{color:var(--dsw-alias-label-tertiary);font-size:10px;line-height:16px}",
       ".plg_status{color:var(--dsw-alias-state-error-primary);margin:0;font-size:12px;line-height:18px}",
       ".plg_pending{color:var(--dsw-alias-label-tertiary);margin:0;font-size:12px;line-height:18px}",
@@ -45,10 +50,14 @@ window.__ModuleLoader__.load({
       const initial = value === undefined || value === null ? "" : String(value)
       const [draft, setDraft] = react.useState(initial)
       react.useEffect(() => { setDraft(initial) }, [initial])
-      const commit = () => { if (draft !== initial) onCommit(field.key, field.isNumber ? Number(draft) : draft) }
-      return jsx("input", {
+      const commit = () => {
+        if (draft === initial) return
+        onCommit(field.key, field.isNumber ? Number(draft) : draft)
+      }
+      return jsx(Input, {
         type: field.isNumber ? "number" : "text",
-        value: draft, disabled,
+        value: draft,
+        disabled,
         onChange: (e) => setDraft(e.target.value),
         onBlur: commit,
         onKeyDown: (e) => { if (e.key === "Enter") commit() },
@@ -77,11 +86,25 @@ window.__ModuleLoader__.load({
         return jsx("p", { className: "plg_status", children: "设置通道不可用：宿主未加载本插件。" })
       }
 
-      // TODO: 按你的字段列表渲染 .plg_pageHeader / .plg_section / .plg_fieldGrid
+      // TODO: 按你的字段列表渲染 .plg_pageHeader / .plg_section / .plg_fieldGrid。
+      //       按钮用 <Button variant="primary">、悬浮提示用 <Tooltip label="...">、状态点用 <StateDot>。
       return jsx("div", { className: "plg_page", children: [
         jsx("div", { className: "plg_pageHeader", children: [
           jsx("h1", { children: "<插件显示名>" }),
           jsx("p", { children: "<一句话说明>" }),
+        ] }),
+        jsx("div", { className: "plg_section", children: [
+          jsx("div", { className: "plg_sectionHeading", children: [
+            jsx("h2", { children: "<分区标题>" }),
+          ] }),
+          jsx("div", { className: "plg_fieldGrid", children: [
+            jsx("label", { children: [
+              "<字段标签>",
+              jsx(FieldInput, { field: { key: "<field-key>", isNumber: false }, value: undefined, disabled: false, onCommit: saveField }),
+              jsx("small", { children: "<字段说明>" }),
+            ] }),
+          ] }),
+          jsx(Button, { variant: "primary", onClick: () => {}, children: "<按钮文案>" }),
         ] }),
         error ? jsx("p", { className: "plg_status", children: error }) : null,
       ] })

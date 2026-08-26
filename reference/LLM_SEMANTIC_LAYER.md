@@ -53,6 +53,6 @@ async function detectFn({ pairs, prompt }) {
 - 失败降级为「无检测结果」而非抛错：检测失败不应让巡检整体失败。
 - 60s 超时 + AbortController 兜底。
 
-## 实测验证结果（2026-08-21）
+## 验证结论
 
-3 对记忆（CLI 路径变更 / 无关事实×2）交给真实 LLM：路径变更对正确判 \`superseded=true\`，无关对 \`false\`。语义判定能力可靠；关键是初筛保证送检量可控、prompt 里写清反例。
+语义判定能力可靠（真实 LLM 验证过「路径变更→superseded=true」「无关事实→false」两类代表例）。关键是：初筛保证送检量可控、prompt 里写清反例（「久未访问不是取代理由」）。
