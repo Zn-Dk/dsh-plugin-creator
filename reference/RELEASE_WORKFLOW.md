@@ -15,7 +15,7 @@ npm test              # 先确认测试绿，再打包
 pnpm pack             # 生成 my-plugin-<version>.tgz，Tarball Contents 会打印出实际打进去的文件
 ```
 
-打包前检查 `package.json` 的 `files` 数组，确保包含：`lib`、`cordis.patch.yml`、`README.md`、`CHANGELOG.md`。
+打包前检查 `package.json` 的 `files` 数组，确保包含：`lib`、`cordis.patch.yml`、`README.md`、`README.zh.md`（分文件双语时）、`CHANGELOG.md`。
 
 ### 分发方式（任选）
 

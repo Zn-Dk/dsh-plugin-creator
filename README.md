@@ -52,7 +52,7 @@ dsh-plugin-creator/
 - 默认只做**中英双语**（zh-CN + en），MVP 之后在迭代中作为 **P1 TODO** 完成。
 - GUI 文案语言**读 Host locale 服务**（`ctx.get('locale')` → `register`/`bind`/`subscribe`，跟随 `locale.preference`），**不是 `navigator.language`**（浏览器语言不跟随 DSH Web UI 切换）；locale 不可用时兜底浏览器检测。
 - 零配置，不做手动设置项。响应切换用 `React.useSyncExternalStore` 订阅。
-- **README 必须双语（强制）**：标题/功能/安装/开发/架构/已知限制等章节一律中英对照，禁止单语 README（发布自检项）。
+- **README 分文件双语（强制）**：`README.md`（英文）+ `README.zh.md`（中文）两份独立文档，顶部语言切换行互指，禁止单文件混排（发布自检项，细则见 reference/I18N.md）。
 - Client bundle 内置 zh/en 文案表（`I18N = { zh: {...}, en: {...} }`），JSX 不散落中文字符串；标点/分隔符也 i18n 化。
 
 ## 适用对象

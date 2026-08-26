@@ -37,7 +37,7 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 
 - **默认只做中英双语**（zh-CN + en）；时机在 MVP 之后（P1 TODO，进 backlog，别拖到发布后）。
 - **GUI 文案读 Host locale 服务**（`ctx.get('locale')` → `register`/`bind`/`subscribe`），**不是 `navigator.language`**（浏览器语言不跟随 DSH Web UI 切换）；locale 不可用时兜底浏览器检测。不做手动语言设置项。
-- **README 必须双语（P0）**：功能/安装/开发/架构/已知限制等所有叙述性段落中英对照，单一语言段落即不合格，补全后再进第 8/9 步。
+- **README 分文件双语（P0）**：`README.md`（英文）+ `README.zh.md`（中文）两份独立完整文档，顶部语言切换行互指；禁止单文件混排。详见 [reference/I18N.md](reference/I18N.md)。
 - **实现要点**：Client bundle 内置 `I18N = { zh, en }`，键集 zh/en 一一对齐；标点/分隔符也 i18n 化；模板占位符集合一致；用 `scripts/check-i18n.mjs` 静态自检。
 - **发布纪律**：GUI i18n 改动必须在 dsh web 真机验证语言切换生效后才能发布。
 - 完整细则见 [reference/I18N.md](reference/I18N.md)。
@@ -111,6 +111,7 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 7. **测试命令本身跑不起来**：`package.json` 里 `scripts.test` 写的 glob/路径要在干净 checkout 里实测一次，不要只信任本地缓存状态。
 8. **模块范式错配**：`package.json` 必须 `"type": "module"`；Host 侧 `lib/*.js` 用 `import`/`export`，不得有顶层 `require`/`module.exports`；Client bundle 的 `require` 只允许出现在 `window.__ModuleLoader__.load` 的 `factory` 闭包内。一见 `ReferenceError: require is not defined` 或 `'import'/'export' cannot be used outside module code` 即判定为 Host 文件 CJS/ESM 错配，不要去改逻辑、先对齐 `type` 与语法。若用户明确走 JS 降级，仍遵守 ESM 约束（用 `.js` + `type:module`，不是 `.cjs`/`module.exports`）。
 9. **GUI 组件未优先用官方组件**：Client 侧的 Tooltip/Modal/Button/Input/Icon/Toast 等是否先查了 [reference/UI_COMPONENTS.md](reference/UI_COMPONENTS.md) 的官方清单？自造组件必须能说出理由（官方没有对应物 / 官方组件不满足需求），说不出来的一律改用官方组件。
+10. **README 未分文件双语**：`README.md`（英文）+ `README.zh.md`（中文）是否都存在、章节一一对应、切换行互指、`files` 含 `README.zh.md`？单文件混排或只有一份即不合格（细则见 [reference/I18N.md](reference/I18N.md)）。
 
 ## 第 8 步：CHANGELOG + 版本
 
@@ -118,7 +119,7 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 - 每次面向用户的变更分级记录：`新增`（feature）/`修复`（fix）/`变更`（breaking/chore），同步递增 `package.json` 的 `version`。
 - 首个 MVP 版本可以是 `0.1.0`，把这一轮做的全部 feature 列进同一个版本条目，不用为内部迭代（比如 code review 修复）单独开版本号——只有**发布/验收节点**才切版本。
 - `package.json` 的 `files` 数组要包含 `CHANGELOG.md`。
-- **发布前 README 双语自检（强制）**：通读 README，任何叙述性段落（安装/开发/架构/已知限制/配置说明等）必须中英对照；只有单一语言的正文段落即为不合格，补全后再进第 9 步。
+- **发布前 README 分文件双语自检（强制）**：核对 `README.md` + `README.zh.md` 两份文件都存在、章节一一对应、语言切换行互指正确、`package.json` 的 `files` 含 `README.zh.md`；单文件混排或只有一份即不合格，补齐后再进第 9 步（细则见 [reference/I18N.md](reference/I18N.md)）。
 - 发布验收通过后按渠道策略收录：主渠道 awesome-dsh-plugin，可选追加 0xsline/awesome-deepseek-harness 与 AdamPlatin123/awesome-dsh-plugins；完整门槛、PR 格式与多仓库一致性见 [reference/AWESOME_LISTING.md](reference/AWESOME_LISTING.md)。
 
 ## 第 9 步：Git tag + GitHub Release
