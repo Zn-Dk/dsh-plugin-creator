@@ -39,6 +39,16 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
   - locale 服务不可用时（兜底）：回退 `navigator.language` + 内置 I18N 表（同一套键）
 - **不做手动语言设置项**（零配置，符合直觉），除非用户明确要求。
 - **范围**：用户可见文案全覆盖——GUI（Client bundle 的按钮/标题/对话框/提示/标点/分隔符）、README（双语）、CHANGELOG（双语或按版本语言）。Host 侧错误消息/工具描述/Skill 正文建议直接英文（面向 agent 与开发者，天然中英通用）。
+- **README 必须生成双语（强制，P0）**：README 是插件对外第一门面，禁止只写中文（或只写英文）。以下章节必须中英对照，缺一不可：
+  - 标题 + 一句话简介（中英各一句）
+  - 功能 / Features（逐条中英对照）
+  - 安装 / Install（命令块注释、说明段落中英对照）
+  - 开发 / Development（命令注释中英对照）
+  - 架构 / Architecture（每个条目中英对照）
+  - 已知限制 / Known limitations（逐条中英对照）
+  - 其他任何叙述性段落（配置说明、截图说明、FAQ 等）一律中英对照
+  - 格式惯例：章节标题用「中文 / English」双写；同一段落中文在上、英文在下，或「中文 / English」同行内联（仓库内保持一致即可）。
+  - **自检**：发布前通读 README，任何一段只有单一语言的正文（代码块、链接、包名除外）即为不合格，必须补全对照后再进第 8/9 步。
 - **实现要点**：
   - Client bundle 内置 `I18N = { zh: {...}, en: {...} }` 文案表（键集合必须完全对齐，zh/en 一一对应），JSX 不散落中文字符串字面量。
   - **标点与分隔符也是文案**：`joinEnd`/`sentenceEnd`/`seqSep` 等进 I18N 表（中文 `；。` vs 英文 `; .`），不要硬编码在代码里。
@@ -121,6 +131,7 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 - 每次面向用户的变更分级记录：`新增`（feature）/`修复`（fix）/`变更`（breaking/chore），同步递增 `package.json` 的 `version`。
 - 首个 MVP 版本可以是 `0.1.0`，把这一轮做的全部 feature 列进同一个版本条目，不用为内部迭代（比如 code review 修复）单独开版本号——只有**发布/验收节点**才切版本。
 - `package.json` 的 `files` 数组要包含 `CHANGELOG.md`。
+- **发布前 README 双语自检（强制）**：通读 README，任何叙述性段落（安装/开发/架构/已知限制/配置说明等）必须中英对照；只有单一语言的正文段落即为不合格，补全后再进第 9 步。
 - 发布验收通过后按渠道策略收录：主渠道 awesome-dsh-plugin，可选追加 0xsline/awesome-deepseek-harness 与 AdamPlatin123/awesome-dsh-plugins；完整门槛、PR 格式与多仓库一致性见 [reference/AWESOME_LISTING.md](reference/AWESOME_LISTING.md)。
 
 ## 第 9 步：Git tag + GitHub Release
