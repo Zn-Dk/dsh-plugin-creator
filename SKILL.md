@@ -55,7 +55,7 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 - [ ] 第 7 步：code review（至少 2 轮，见「必查清单」）
 - [ ] 第 8 步：CHANGELOG + 版本号 + commit
 - [ ] 第 9 步：Git tag + GitHub Release（见第 9 步说明与 reference/RELEASE_WORKFLOW.md）
-- [ ] 第 10 步（可选）：发布后收录（主渠道 awesome-dsh-plugin，可选追加两个社区 awesome 列表；见 reference/AWESOME_LISTING.md）
+- [ ] 第 10 步（可选）：发布后收录（主渠道 awesome-dsh-plugin，可选追加两个社区 awesome 列表；见 reference/AWESOME_LISTING.md；GUI 插件在仓库根加 `screenshots.json` 声明截图，dshmarket 卡片自动展示，零 PR）
 ```
 
 ## 第 2 步：package.json / cordis.patch.yml 骨架

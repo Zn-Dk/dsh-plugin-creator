@@ -107,3 +107,9 @@ git push origin main --tags
 发布/收录后更新 README 的 `Release & listing` 段：
 - npm 链接、GitHub 链接、**Releases 链接**（https://github.com/<owner>/<repo>/releases）
 - 已收录渠道（awesome-dsh-plugin 等）用链接，不写死版本号。
+
+### 截图（影响 dshmarket 卡片 + Release 正文）
+
+- GUI 插件发布时把真实 UI 截图放进仓库根 `assets/`，并在仓库根 `screenshots.json` 声明（作者自助，下一次 CI 构建自动进 dshmarket 卡片；机制详见 [AWESOME_LISTING.md](AWESOME_LISTING.md) 的 dshmarket 截图小节）。
+- Release 正文可复用同一批截图（GitHub raw 链接），README 双语版各加一个截图章节。
+- `package.json` 的 `files` 要包含 `screenshots.json`。

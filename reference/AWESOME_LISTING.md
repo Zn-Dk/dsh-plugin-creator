@@ -73,6 +73,35 @@
 - 描述夸大：改描述，别改代码去硬凑描述数字。
 - 只声明 dsh.client：补 dsh.bundle。
 
+## dshmarket 卡片截图（作者自助，零 PR）
+
+主渠道收录后，插件会出现在 dshmarket（DSH 可视化插件市场）与 awesome-dsh-plugin 站点。市场卡片支持 **AppStore 风格截图轮播**（多图自动轮播、点击放大），modlens 等热门插件正是靠这个机制在搜索结果里展示预览图。
+
+### 机制：screenshots.json 作者自助声明
+
+- **数据源**：dshmarket 实时拉取 `awesome-dsh-plugin.com/plugins.json`，其中 `screenshots` 字段来自上游 CI 的 `probe-screenshots.mjs`。
+- **两个来源（优先级从高到低）**：
+  1. **插件自己仓库根目录的 `screenshots.json`**（package.json 旁边）——**这是唯一推荐方式**：作者 push 到自己仓库，下一次 CI 构建（通常一天内）自动收录，**无需提 PR、无需等维护者**。
+  2. 上游仓库 `data/screenshots.json`（旧 fallback，作者迁移后会被 prune 删除；新插件不要用）。
+- **合法形状（三种都接受）**：
+  ```json
+  { "screenshots": ["assets/a.png", "assets/b.png"] }
+  ```
+  或纯数组 `["assets/a.png"]`；或单键 map `{ "https://github.com/owner/repo": ["assets/a.png"] }`。
+- **路径解析**：相对路径按作者仓库 HEAD 解析（改文件名/删图会在自己仓库暴露，CI 检测到 404 会自动从发布数据里丢弃，不会阻塞构建）。
+- **限制**：
+  - 最多 **8 张**。
+  - 绝对 URL 必须是 HTTPS，且 host 白名单：`raw.githubusercontent.com` / `user-images.githubusercontent.com` / `camo.githubusercontent.com` / `github.com`（GitHub 系托管，防止追踪像素）。
+  - 相对路径不能爬出插件自身目录。
+- **package.json 打包**：`files` 数组要包含 `screenshots.json`（npm 包自带），图片本身不必进 npm 包（市场从 GitHub raw 加载）。
+
+### 最佳实践（GUI 插件）
+
+- 截图放仓库根 `assets/`，建议 2–4 张覆盖：主界面总览 / 关键交互（详情展开、设置卡片）/ 深色模式 / 移动或窄屏。
+- 图片用 GitHub 友好格式（png/jpg），保持合理尺寸（几千像素内），README 与 Release 正文可复用同一批图。
+- 截图应真实展示当前版本 UI；发布大版本 UI 变化后记得同步更新。
+- dshmarket 卡片：无截图插件在安装对话框回退「自动提取 README 图片」——不保证效果，**主动声明才是可控路径**。
+
 ## 可选渠道 A：0xsline/awesome-deepseek-harness
 
 - 定位：hand-curated 精选列表；完整索引在 `dsh-external/hub`（`catalog.json`）与自动生成的 `CATALOG.md`。

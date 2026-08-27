@@ -13,7 +13,7 @@
 - **测试与发布**：TDD seam 划分、构建产物校验、pnpm pack + tgz 安装、CHANGELOG 演进。
 - **GUI 交互分区**：settings 卡片、会话视图 tab、工具行、侧栏等 slot 选型（reference/SLOTS.md）。
 - **确定性自检**：i18n 键对齐、Host ESM 范式、干净 checkout 测试命令三套脚本（scripts/）。
-- **收录**：发布后进 awesome-dsh-plugin 的门槛与 PR 流程（见 reference/AWESOME_LISTING.md）。
+- **收录**：发布后进 awesome-dsh-plugin 的门槛与 PR 流程，含 dshmarket 卡片截图自助声明（见 reference/AWESOME_LISTING.md）。
 
 ## 快速开始
 
