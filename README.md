@@ -1,6 +1,6 @@
 # dsh-plugin-creator
 
-一个用于**创建和迭代 DSH（DeepSeek Harness）out-of-tree Web 插件**的 Agent skill。
+一个用于**创建和迭代 DSH（DeepSeek Harness）Web 插件**的 Agent skill。
 
 它把经过实践验证的插件开发流程、运行时边界与常见踩坑固化成一份可执行清单，覆盖从脚手架、Host/Client 装配、GUI 设置卡片、TDD 到发布验收的完整路径。
 

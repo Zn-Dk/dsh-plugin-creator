@@ -1,6 +1,6 @@
 ---
 name: dsh-plugin-creator
-description: Scaffold and iterate a DSH (DeepSeek Harness) out-of-tree Web plugin — host half, client bundle, settings namespace, GUI card, tests, release. Use to create, extend, or debug a cordis-based DSH plugin.
+description: Scaffold and iterate a DSH (DeepSeek Harness) Web plugin — host half, client bundle, settings namespace, GUI card, tests, release. Use to create, extend, or debug a cordis-based DSH plugin.
 allowed-tools:
   - Read
   - Grep
@@ -14,7 +14,7 @@ tier: standard
 
 # DSH Plugin Creator
 
-创建/迭代一个 DSH out-of-tree Web 插件的完整流程，把通用工程实践与已验证的踩坑点固化为清单，避免重复犯错。
+创建/迭代一个 DSH Web 插件的完整流程，把通用工程实践与已验证的踩坑点固化为清单，避免重复犯错。
 
 ## 何时用
 
@@ -96,7 +96,7 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 - **不要用 `link:` 方式验收最终安装**。`dsh plugin --profile web add "link:..."` 不会把插件自己的 `dependencies`/`peerDependencies` 自动装进 profile，容易报 `ERR_MODULE_NOT_FOUND`，且掩盖真实的依赖缺口。
 - **推荐方式**：`pnpm pack` 产出 `<name>-<version>.tgz`，再 `dsh plugin --profile web add ./<name>-<version>.tgz` 或直链安装，详见 [reference/RELEASE_WORKFLOW.md](reference/RELEASE_WORKFLOW.md)。
 - 装完后必须**重启 `dsh web`**（client bundle、host 插件树都是启动时组装的，不支持插件级热插拔）。
-- 出树插件目录本身要先 `pnpm install` 过一次（哪怕最终用 tgz 分发），否则本地测试都跑不起来。
+- 插件目录本身要先 `pnpm install` 过一次（哪怕最终用 tgz 分发），否则本地测试都跑不起来。
 
 ## 第 7 步：必查清单（至少 2 轮 code review）
 
