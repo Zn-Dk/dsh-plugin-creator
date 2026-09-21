@@ -127,7 +127,7 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 - 首个 MVP 版本可以是 `0.1.0`，把这一轮做的全部 feature 列进同一个版本条目，不用为内部迭代（比如 code review 修复）单独开版本号——只有**发布/验收节点**才切版本。
 - `package.json` 的 `files` 数组要包含 `CHANGELOG.md`。
 - **发布前 README 分文件双语自检（强制）**：核对 `README.md` + `README.zh.md` 两份文件都存在、章节一一对应、语言切换行互指正确、`package.json` 的 `files` 含 `README.zh.md`；单文件混排或只有一份即不合格，补齐后再进第 9 步（细则见 [reference/I18N.md](reference/I18N.md)）。
-- 发布验收通过后按渠道策略收录：主渠道 awesome-dsh-plugin，可选追加 0xsline/awesome-deepseek-harness 与 AdamPlatin123/awesome-dsh-plugins；完整门槛、PR 格式与多仓库一致性见 [reference/AWESOME_LISTING.md](reference/AWESOME_LISTING.md)。
+- 发布验收通过后按渠道策略收录：主渠道 awesome-dsh-plugin，可选追加 0xsline/awesome-deepseek-harness 与 AdamPlatin123/dsh-plugin-radar；完整门槛、PR 格式与多仓库一致性见 [reference/AWESOME_LISTING.md](reference/AWESOME_LISTING.md)。
 
 ## 第 9 步：Git tag + GitHub Release
 

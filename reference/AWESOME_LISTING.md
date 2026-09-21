@@ -8,7 +8,7 @@
 |---|---|---|---|
 | `awesome-dsh-plugin/awesome-dsh-plugin` | dshmarket 数据源，精选市场 | PR 加 `data/plugins/*.yml` | ✅ 默认主渠道 |
 | `0xsline/awesome-deepseek-harness` | 手选精选目录（awesome-list 风格） | PR 改 README 双语 | ⚠️ 可选加分 |
-| `AdamPlatin123/awesome-dsh-plugins` | 自动发现 + 证据验证的生态雷达 | 打 topic 自动收录 / PR 加速登记 | ⚠️ 可选加分 |
+| `AdamPlatin123/dsh-plugin-radar` | 自动发现 + 证据验证的生态雷达 | 打 topic 自动收录 / PR 加速登记 | ⚠️ 可选加分 |
 
 **默认策略**：完成发布验收后，先做 `awesome-dsh-plugin`（主渠道）。另两个渠道是「可选加分」，不是发布前置；只有当插件已发布、README/CHANGELOG 就绪、且愿意维护多处描述同步时再追加。三个渠道互相独立、互不冲突，可以都提。
 
@@ -115,12 +115,20 @@
   5. 无需跑测试（markdown only）。
 - 注意：`CATALOG.md` 是自动生成的，**不要手改**。仓库打 `dsh-plugin` topic 后是否进 catalog 由生成脚本决定，PR 只负责 README 精选条目。
 
-## 可选渠道 B：AdamPlatin123/awesome-dsh-plugins
+## 可选渠道 B：AdamPlatin123/dsh-plugin-radar
+
+> **仓库改过名**：曾用名 `AdamPlatin123/awesome-dsh-plugins`，现名 `AdamPlatin123/dsh-plugin-radar`
+> （旧 URL 会 301 重定向到新名，但**写文档/提 PR 一律用现名**）。历史 fork 的默认分支名
+> 仍是 `awesome-dsh-plugins`，别把它当成仓库现名。
 
 - 定位：自动发现 + 证据验证的生态雷达（数千仓库级），提供运行级证据（可用 / 不兼容 / 待定）。README 首页与 `PLUGINS-ALL.md` 由管线自动渲染，**不要手改自动块**。
 - 收录方式（双轨，可只做其一）：
   1. **自动收录（零操作）**：仓库打 `dsh-plugin` topic → 每日全量扫描自动进入索引。这一步已足够让插件被雷达发现。
   2. **PR 登记（加速/人工精选）**：在 `PLUGINS.md` 对应分类表格追加一行并提 PR，合并后立即进入目录。
+- **只需 fork 一次、长期复用**：登记 PR 只改 `PLUGINS.md` 一行，用同一个 fork 反复提即可。
+  **不要**为了"保持同步"去保留一个跟随上游的 fork——上游管线会持续把 bot 提交推进默认分支，
+  旧 fork 会长期分叉（实测可达 behind 280+ commits），既没有价值，还会让旧 fork 里的定时
+  工作流继续跑、持续失败、制造噪声。登记完即可删除 fork，需要时再重建。
 - 最低收录条件（README「给插件开发者」）：公开仓库 + `dsh-plugin` topic；根 `package.json` 有 `name` 与 `main`/`exports`/dsh 入口；README 说明做什么/安装/卸载/最小示例；运行时依赖显式声明；声明支持的 DSH 版本；有许可证；不泄密。
 - PR 流程：
   1. 跑预归类器：`python3 scripts/classify.py "<插件名>" "<一句话描述>"` → 拿「建议分类」。
