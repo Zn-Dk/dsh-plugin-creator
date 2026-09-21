@@ -85,11 +85,13 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 **完整细节见 [reference/CLIENT_BUNDLE.md](reference/CLIENT_BUNDLE.md)；slot 选型与 GUI 交互分区清单见 [reference/SLOTS.md](reference/SLOTS.md)。**
 
 一句话摘要：
-- `ctx.settings.register` 只解决 Host 侧持久化，**不会**自动出现在 Web 设置页；要有 GUI 卡片，必须额外：① Host 侧注册一个自定义 RPC 通道（`connection.rpc.handle(CHANNEL, handler)`）把 settings 的 get/mutate 包装成 client 可调用的接口；② Client 侧写 bundle 用 `ctx.slots.inject("settings.section", ...)` 注册卡片，卡片内部走这个 RPC 通道读写。
+- `ctx.settings.register` 只解决 Host 侧持久化，**不会**自动出现在 Web 设置页；要有 GUI 卡片，还要 Client 侧用 `ctx.slots.inject("settings.section", ...)` 注册卡片。
+- **读写 Host 服务走 `ctx.remote.*`（强制）**：`ctx.remote.credentials` / `ctx.remote.settings` / `ctx.remote.llm` 由 api-gateway 自动暴露，**不需要自己接 RPC 管子**。必须在 `inject` 里显式声明用到的每个 `remote.*` 命名空间（如 `["slots","connection","remote","remote.credentials","remote.settings"]`），漏声明就会 `undefined` → 一交互就崩。**`ctx.connection` 没有 `.api` 字段**，`ctx.get('connection').api.*` 是失效写法。
 - Client bundle 是 `window.__ModuleLoader__.load({ id, factory: require => {...} })` 格式，**只能 require 种子白名单（共 7 词）**：`react`、`react/jsx-runtime`、`react-dom`、`react-dom/client`、`@deepseek-ai/cordis`、`@deepseek-ai/dsh-client-ui-slots`、`@deepseek-ai/dsh-client-ui-primitives`。不能 import 任意 npm 包。
 - slot 注册要传**组件函数本身**，不要用 `() => jsx(Component, null)` 包一层——那样面板会空白或崩溃。
 - **UI 一律优先复用官方组件，禁止重复造轮子（强制）**：Client bundle 里要悬浮提示/弹窗/按钮/输入框/图标/开关等，先查 [reference/UI_COMPONENTS.md](reference/UI_COMPONENTS.md) 找官方 `@deepseek-ai/dsh-client-ui-primitives` 等种子组件；只有官方组件里找不到才允许自写 CSS，且必须在代码注释或 review 里记录理由。教训：dsh-session-explorer 的 Tooltip 迭代多个版本才用上官方 Tooltip。
 - **排版不要凭感觉写 inline style**——应检查当前 DSH Web 宿主已有设置卡片的编译产物，提取其 CSS class 与 `page/section/sectionHeading/字段网格` 间距规范，逐项对齐。优先复用宿主视觉语言，而不是凭感觉调数值。
+- **没有的能力不要假装有**：DSH 不提供通用「打开文件夹」Remote，这类需求退化为「显示路径 + 点击复制」，别留点不动的按钮。
 
 ## 第 6 步：安装验证 —— 高频踩坑
 
@@ -112,6 +114,11 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 8. **模块范式错配**：`package.json` 必须 `"type": "module"`；Host 侧 `lib/*.js` 用 `import`/`export`，不得有顶层 `require`/`module.exports`；Client bundle 的 `require` 只允许出现在 `window.__ModuleLoader__.load` 的 `factory` 闭包内。一见 `ReferenceError: require is not defined` 或 `'import'/'export' cannot be used outside module code` 即判定为 Host 文件 CJS/ESM 错配，不要去改逻辑、先对齐 `type` 与语法。若用户明确走 JS 降级，仍遵守 ESM 约束（用 `.js` + `type:module`，不是 `.cjs`/`module.exports`）。
 9. **GUI 组件未优先用官方组件**：Client 侧的 Tooltip/Modal/Button/Input/Icon/Toast 等是否先查了 [reference/UI_COMPONENTS.md](reference/UI_COMPONENTS.md) 的官方清单？自造组件必须能说出理由（官方没有对应物 / 官方组件不满足需求），说不出来的一律改用官方组件。
 10. **README 未分文件双语**：`README.md`（英文）+ `README.zh.md`（中文）是否都存在、章节一一对应、切换行互指、`files` 含 `README.zh.md`？单文件混排或只有一份即不合格（细则见 [reference/I18N.md](reference/I18N.md)）。
+11. **Client 侧用了失效的 Host 服务访问方式**：读写 Host 服务必须走 **`ctx.remote.credentials` / `ctx.remote.settings` / `ctx.remote.llm`**，并在 `inject` 里显式声明每个 `remote.*` 命名空间。**`ctx.connection` 没有 `.api` 字段**——老写法 `ctx.get('connection').api.credentials` 会直接抛 `Cannot read properties of undefined (reading 'credentials')`。返回值是 `{ok, value|error}`，不是 `res.result.ok`。详见 [reference/CLIENT_BUNDLE.md](reference/CLIENT_BUNDLE.md)。
+12. **LLM provider 插件漏注入 attachments**：接入模型的插件若把 attachments 服务写死 `undefined` 传给序列化层，**纯文本正常、一发图必失败**（`attachments service is unavailable`）。必须惰性注入（`() => ctx.get("attachments")`）且把**完整 `ImageAttachmentRef`** 交给 `readImage`。注意单测若拿 `undefined` 当默认值会**掩盖**这个 bug——必须补「真 fake 生成 data URL」+「缺失即 loud fail」两条断言。详见 [reference/LLM_PROVIDER_PLUGIN.md](reference/LLM_PROVIDER_PLUGIN.md)。
+13. **错误信息不可诊断**：兜底错误码（如 `TRANSPORT`）吞掉 cause、HTTP 错误体只按 JSON 解析（厂商 429 常返回 `text/plain`）、超时判在通用包装之后 → 用户只看到一句无信息的 `... failed`。约定：兜底错误要拼上底层原因并写调试日志；超时判定放在通用包装**之前**；HTTP 错误体先试 JSON、失败则用纯文本。
+14. **UI 里的假功能**：DSH 没有的能力（如通用「打开文件夹」Remote）不要做成按钮——点不动的按钮比没有更糟。退化为可用的替代（显示路径 + 复制到剪贴板），或干脆不做。
+15. **模型/厂商限流误判为故障**：厂商常按模型独立限流（一个模型 429 时另一个仍 200）。错误指引要给出「稍后重试 / 换模型」，探针要选便宜快的模型，别把旗舰模型的限流报成 key 失效。
 
 ## 第 8 步：CHANGELOG + 版本
 
@@ -141,11 +148,12 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 - [reference/I18N.md](reference/I18N.md) —— 国际化完整细则（locale 服务接入、README 双语、实现要点）
 - [reference/SLOTS.md](reference/SLOTS.md) —— Client 可注入 slot 清单（GUI 交互分区、kind/scope、首选 slot 决策表）
 - [reference/EVENT_MODEL.md](reference/EVENT_MODEL.md) —— DSH agent 事件模型完整细节（全局 vs per-agent，effect 生命周期）
-- [reference/CLIENT_BUNDLE.md](reference/CLIENT_BUNDLE.md) —— client bundle 格式、settings RPC 桥接、GUI 排版规范提取方法
+- [reference/CLIENT_BUNDLE.md](reference/CLIENT_BUNDLE.md) —— client bundle 格式、**`ctx.remote.*` 访问 Host 服务**、GUI 排版规范提取方法
 - [reference/UI_COMPONENTS.md](reference/UI_COMPONENTS.md) —— 官方 client UI 组件目录（可 require 种子包、primitives 组件清单、优先用官方组件的决策规则）
 - [reference/RELEASE_WORKFLOW.md](reference/RELEASE_WORKFLOW.md) —— pnpm pack + tgz 直链安装、CHANGELOG 模板
 - [reference/TDD_SEAMS.md](reference/TDD_SEAMS.md) —— 插件适用的 TDD seam 划分方式（引擎/适配层/编排层 vs 装配层）
 - [reference/LLM_SEMANTIC_LAYER.md](reference/LLM_SEMANTIC_LAYER.md) —— 插件内嵌 LLM 语义判定（初筛→prompt→子代理→解析）
+- [reference/LLM_PROVIDER_PLUGIN.md](reference/LLM_PROVIDER_PLUGIN.md) —— **接入模型 provider 的插件**：三段式注册、LlmAdapter 契约、attachments 注入坑、错误分类、调试日志
 - [reference/AWESOME_LISTING.md](reference/AWESOME_LISTING.md) —— 发布后收录：awesome-dsh-plugin 主渠道 + 两个社区 awesome 列表的边界、门槛、PR 格式与 CI 判定
 - [templates/](templates/) —— package.json / tsconfig.json / cordis.patch.yml 骨架（默认 TypeScript）；client.js.template 仅供用户明确指定 JavaScript 时使用
 - [scripts/](scripts/) —— 确定性自检脚本：check-i18n / check-esm / check-checkout

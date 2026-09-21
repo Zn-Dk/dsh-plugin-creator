@@ -1,4 +1,4 @@
-# Client Bundle：格式、Settings RPC 桥接、GUI 排版
+# Client Bundle：格式、Host 服务访问、GUI 排版
 
 本参考聚焦从无 GUI 到有 GUI 的实现路径，以及设置卡片排版的通用教训。
 
@@ -8,40 +8,77 @@
 
 ```
 Host settings namespace  (ctx.settings.register)
-        ↑↓ 你要自己接一根管子
-Host settings RPC 通道    (connection.rpc.handle)
-        ↑↓ WebSocket/RPC
+        ↑↓ 由 api-gateway 自动暴露
 Client 设置卡片           (ctx.slots.register 'settings.section')
+        ↑↓ 直接调 ctx.remote.settings / ctx.remote.credentials
 ```
 
-## Host 侧：注册 settings RPC 通道
+**关键**：读写走 **`ctx.remote.*`**（api-gateway 生成并注入的 Remote 命名空间），**不要自己接 RPC 管子**。见下一节。
+
+## Client 侧读写 Host 服务：用 `ctx.remote.*`（强制）
+
+**这是最容易踩的坑。** 老写法 `ctx.get('connection').api.credentials` / `ctx.connection.api.*` **已经失效**——`ctx.connection` 的真实形状只有 `isLoopback` / `generation` / `state` / `rpc` / `reconnect` / `registerGenerationSource` / `start`，**没有 `.api` 字段**。照抄会直接报：
+
+```
+Uncaught TypeError: Cannot read properties of undefined (reading 'credentials')
+```
+
+正确姿势（权威参照：harness `packages/client/ui-settings-models/src/client/operations.ts` 与 `index.ts`）：
 
 ```js
-// lib/settings-rpc.js —— 纯函数，可单测，不依赖 DSH 具体类型
-export function createSettingsRpcHandler(settings) {
-  return async (endpoint, rawPayload) => {
-    try {
-      if (endpoint === 'get') return success(descriptor(settings))
-      if (endpoint !== 'mutate') return badRequest(...)
-      if (!settings.writable) return failure(new Error('read-only'))
-      const ops = payload.ops.map(op => {
-        if (!mutablePath(op.path)) throw new Error('unsupported field') // 白名单校验
-        return { op: op.op, path: op.path, value: op.value }
-      })
-      await settings.mutate(NAMESPACE, ops, payload.expectedRevision)
-      return success(descriptor(settings))
-    } catch (error) { return failure(error) }
-  }
-}
+// 1) inject 必须显式声明每一个用到的命名空间，否则 cordis 解析成 undefined
+const inject = ["slots", "connection", "remote", "remote.credentials", "remote.settings", "remote.llm"]
 
-// lib/index.js —— apply() 里注册通道，只在 Web 连接可用时
-ctx.inject(['connection'], (webContext) => {
-  if (webContext.connection === undefined) return
-  webContext.connection.rpc.handle('/my-plugin-settings', createSettingsRpcHandler(ctx.settings), { authority: 'loopback' })
-})
+function apply(ctx) {
+  // 2) inject 声明的服务在 apply() 运行前已解析，直接访问即可（无需 ctx.get）
+  const remote = ctx.remote
+  if (!remote || !remote.credentials || !remote.settings) return   // 防御性守卫
+  const api = { credentials: remote.credentials, settings: remote.settings, llm: remote.llm }
+  // ...注册 slot
+}
 ```
 
-**字段白名单是必须的**：mutate 接口不能让 client 任意写 settings 的任何字段，只放行插件自己声明的配置项。
+### Remote 调用签名与返回值（实测）
+
+```js
+await ctx.remote.credentials.describe([ref])          // → { ok, value: { [ref]: {configured, writable, source?} } }
+await ctx.remote.credentials.set(ref, value)          // 位置参数！不是 set({ref, value})
+await ctx.remote.credentials.unset(ref)
+await ctx.remote.settings.describe()                  // → { ok, value: { writable, hasDocument, namespaces: [{ns, value, revision, ...}] } }
+await ctx.remote.settings.mutate(ns, ops, expectedRevision)  // 位置参数！不是 mutate({ns, ops, ...})
+await ctx.remote.llm.listProviders()                  // → LlmProviderInfo[] = {id, name}[]（**没有 active 字段**）
+await ctx.remote.llm.listConfigurableProviders()
+await ctx.remote.llm.discoverModels(settingsNs, request)
+```
+
+**返回值统一是 `{ ok: true, value } | { ok: false, error }`**，不是 `res.result.ok`（那是更老的包装，已不存在）：
+
+```js
+const res = await api.credentials.set(KEY_REF, value)
+if (res && res.ok) { /* 成功 */ } else { setMsg(res?.error?.message || "failed") }
+```
+
+### 推送式失效通知
+
+用 `ctx.remote.$on(...)` 订阅，配合 `ctx.effect` 统一清理：
+
+```js
+ctx.effect(() => {
+  const disposers = [
+    remote.$on("credentials/reference-updated", refresh),
+    remote.$on("settings/document-updated", refresh),
+    remote.$on("llm/adapters-updated", refresh),
+    ctx.on("connection/reset", refresh),
+  ]
+  return () => { for (const d of disposers) if (typeof d === "function") d() }
+}, "my-plugin: pushed invalidations")
+```
+
+### 没有的能力不要假装有
+
+DSH **没有**通用的「打开文件夹」Remote。`settings` 命名空间只有 `openSettingsDocument` / `openAgentPresetDirectory` 这类专用方法。想做「打开日志目录」只能退化为**显示路径 + 点击复制到剪贴板**，不要留一个永远点不动的按钮（假功能）。
+
+> 自查：Harness 源码的 `packages/api/*/src/*.ts` 是 Remote 命名空间的权威来源（`super(ctx, 'xxx', { namespace: 'yyy' })` + `@Remote` 标注的方法）；客户端用法看 `packages/client/ui-*/src/client/`。
 
 ## Client Bundle 格式契约
 
@@ -61,26 +98,34 @@ window.__ModuleLoader__.load({
     const { Tooltip } = require("@deepseek-ai/dsh-client-ui-primitives") // ✅ 种子词（官方组件库）
     // require("lodash") / require("@deepseek-ai/dsh-client-web-react") 等 —— ❌ 不允许（非种子词，构建时不会打包进去）
 
-    function SettingsCard({ connection }) { /* React 组件 */ }
+    function SettingsCard({ api }) { /* React 组件，用 api.credentials / api.settings */ }
 
     function apply(ctx) {
+      const remote = ctx.remote
+      if (!remote || !remote.credentials || !remote.settings) return
+      const api = { credentials: remote.credentials, settings: remote.settings, llm: remote.llm }
+
       ctx.slots.inject("settings.section", () => ctx.slots.register({
         name: "settings.section",
         id: "my-plugin",
         order: 20.5, // 决定在设置页侧边栏的排序位置，参考其他插件的 order 避免撞车
         label: () => "我的插件",
-        inject: () => ({ connection: ctx.connection }),
+        // inject 只传组件真正需要的值；把 api 闭包进去即可，不必再传 connection
+        inject: () => ({ api }),
       }, SettingsCard)) // ⚠️ 直接传函数本身，不要用 () => jsx(SettingsCard, null) 包一层
     }
 
     bundleModule.exports.apply = apply
-    bundleModule.exports.inject = ["slots", "connection"] // 声明需要的 client-side service
+    // 每个用到的 remote 命名空间都要显式声明，否则解析为 undefined
+    bundleModule.exports.inject = ["slots", "connection", "remote", "remote.credentials", "remote.settings", "remote.llm"]
     return bundleModule.exports
   },
 })
 ```
 
-**踩坑记录**：slot 注册若写成 `register({...}, () => jsx(Component, null))`，面板会渲染空白甚至崩溃——必须直接传组件函数：`register({...}, Component)`。
+**踩坑记录**：
+- slot 注册若写成 `register({...}, () => jsx(Component, null))`，面板会渲染空白甚至崩溃——必须直接传组件函数：`register({...}, Component)`。
+- `inject` 数组漏声明 `remote.*` 时，`ctx.remote.credentials` 是 `undefined`，组件一渲染/一点击就抛 `Cannot read properties of undefined`。**症状是「装了插件但一交互就崩」**。
 
 ## GUI 排版：不要凭感觉写 inline style
 
