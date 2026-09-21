@@ -129,6 +129,39 @@
   **不要**为了"保持同步"去保留一个跟随上游的 fork——上游管线会持续把 bot 提交推进默认分支，
   旧 fork 会长期分叉（实测可达 behind 280+ commits），既没有价值，还会让旧 fork 里的定时
   工作流继续跑、持续失败、制造噪声。登记完即可删除 fork，需要时再重建。
+- **⚠️ fork 前必查目标仓库有没有 `schedule`（cron）**——这是最容易被忽略的坑：
+  fork 会**完整继承上游的定时工作流**，cron 在 fork 里照样按点执行；而 GitHub 规则是
+  「scheduled workflow 的失败通知只发给**最初创建该 workflow 的用户**」，也就是上游作者，
+  **不是你**。结果就是：fork 里的定时任务默默失败，你一封通知都收不到。
+  实测案例：一个仅用于提收录 PR 的 fork 继承了上游的 `refresh-featured`（每 6 小时），
+  因上游策展名单里某成员被归档而失败，**静默连续失败 44 次、停摆 11 天**才被发现；
+  上游自己 6 天后修好了，也没通知 fork。
+  唯一自动兜底是「公开仓库 60 天无活动才禁用定时工作流」——太慢，等不起。
+
+  **规避动作（任选其一，推荐前两项）**：
+  1. **不建 fork**：改动量小时直接走 API 提 PR（改 `PLUGINS.md` 一行完全够用），
+     或用浅克隆 + `gh` 提交；从根上不产生会跑 cron 的 fork。
+  2. **建完立刻停用**：fork 的 Settings → Actions → Disable actions（或只禁用带 cron 的 workflow）。
+  3. **用完即删**：PR 合并后删除 fork。
+
+  查 cron 的方法：看目标仓库 `.github/workflows/*.yml` 里有没有 `schedule:` 段；
+  或直接跑 `node /root/proj/dsh-proj/bin/gh-workflow-audit.mjs` 做全账号体检（见下）。
+
+## 定时工作流自查（gh-workflow-audit）
+
+`/root/proj/dsh-proj/bin/gh-workflow-audit.mjs`：全账号 Actions 体检，回答三件事——
+① 哪些 **fork 带 cron**（高危：失败不通知你）；② 哪些仓库最近有失败运行；③ 哪些 fork 长期不活跃（僵尸分叉）。
+
+```sh
+node /root/proj/dsh-proj/bin/gh-workflow-audit.mjs            # 体检当前账号
+node /root/proj/dsh-proj/bin/gh-workflow-audit.mjs --days 30  # 统计窗口
+node /root/proj/dsh-proj/bin/gh-workflow-audit.mjs --strict   # 有高危/失败时退出码 1（可挂定时任务）
+```
+
+凭证默认读 `/root/.dsh/personal-credentials.yaml` 的 `github.token`，可用 `GH_TOKEN` 覆盖。
+**建议**：提收录 PR 前后各跑一次；自己的仓库若加了 cron，务必在 workflow 里自带失败告警
+（如失败时开 issue / 调 webhook），不要依赖 GitHub 默认通知。
+
 - 最低收录条件（README「给插件开发者」）：公开仓库 + `dsh-plugin` topic；根 `package.json` 有 `name` 与 `main`/`exports`/dsh 入口；README 说明做什么/安装/卸载/最小示例；运行时依赖显式声明；声明支持的 DSH 版本；有许可证；不泄密。
 - PR 流程：
   1. 跑预归类器：`python3 scripts/classify.py "<插件名>" "<一句话描述>"` → 拿「建议分类」。
