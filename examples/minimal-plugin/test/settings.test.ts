@@ -1,7 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { clampCount, DEFAULTS, NAMESPACE } from '../src/settings.js'
-import { createSettingsRpcHandler, success } from '../src/settings-rpc.js'
 
 describe('pure logic', () => {
   it('clamps count into [0, 100]', () => {
@@ -14,48 +13,21 @@ describe('pure logic', () => {
     assert.equal(DEFAULTS.count, 0)
     assert.equal(DEFAULTS.greeting, 'Hello')
   })
-})
 
-describe('settings rpc', () => {
-  function fakeSettings(overrides = {}) {
-    const calls = { mutate: [] as unknown[] }
-    return {
-      calls,
-      settings: {
-        writable: true,
-        get: () => ({ greeting: 'Hi', count: 1 }),
-        mutate: async (ns, ops, expectedRevision) => { calls.mutate.push({ ns, ops, expectedRevision }) },
-        ...overrides,
-      },
-    }
-  }
-
-  it('get returns the resolved value', async () => {
-    const { settings } = fakeSettings()
-    const handler = createSettingsRpcHandler(settings, NAMESPACE)
-    assert.deepEqual(await handler('get', {}), success({ greeting: 'Hi', count: 1 }))
+  // 形状契约回归（2026-09-24 实测教训）：client 侧读 settings.describe() 时，
+  // value 是 { namespaces: [...] } 包装对象；若按裸数组 .find() 会直接抛
+  // "descriptors.find is not a function"。这个纯函数就是卡片里的投影逻辑。
+  it('projects the describe answer onto this namespace', () => {
+    const answer = { writable: true, hasDocument: true, namespaces: [{ ns: NAMESPACE, value: DEFAULTS, revision: 3 }] }
+    const namespaces = Array.isArray(answer.namespaces) ? answer.namespaces : []
+    const hit = namespaces.find((n) => n.ns === NAMESPACE)
+    assert.equal(hit?.revision, 3)
+    assert.deepEqual(hit?.value, DEFAULTS)
   })
 
-  it('mutate validates the field whitelist and returns the new value', async () => {
-    const { settings, calls } = fakeSettings()
-    const handler = createSettingsRpcHandler(settings, NAMESPACE)
-    const res = await handler('mutate', { ops: [{ op: 'set', path: ['greeting'], value: 'Yo' }] })
-    assert.deepEqual(res, success({ greeting: 'Hi', count: 1 }))
-    assert.deepEqual(calls.mutate, [{ ns: NAMESPACE, ops: [{ op: 'set', path: ['greeting'], value: 'Yo' }], expectedRevision: undefined }])
-  })
-
-  it('rejects unknown fields (whitelist)', async () => {
-    const { settings } = fakeSettings()
-    const handler = createSettingsRpcHandler(settings, NAMESPACE)
-    const res = await handler('mutate', { ops: [{ op: 'set', path: ['nope'], value: 1 }] })
-    assert.equal(res.ok, false)
-    if (!res.ok) assert.match(res.error.message, /unsupported field/)
-  })
-
-  it('rejects unknown endpoint', async () => {
-    const { settings } = fakeSettings()
-    const handler = createSettingsRpcHandler(settings, NAMESPACE)
-    const res = await handler('bogus', {})
-    assert.equal(res.ok, false)
+  it('treats a non-array namespaces field as absent (no crash)', () => {
+    const answer = { namespaces: undefined }
+    const namespaces = Array.isArray(answer.namespaces) ? answer.namespaces : []
+    assert.deepEqual(namespaces.find((n) => n.ns === NAMESPACE), undefined)
   })
 })

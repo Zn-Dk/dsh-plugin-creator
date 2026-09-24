@@ -35,4 +35,5 @@
 - `ctx.settings.register(ns, schema, { base, applies })`：`ns` 用 `settingsNamespace('kebab-case')` 工厂（`@deepseek-ai/dsh-settings`）；`schema` 必须是 schemastery（`z.object({...})`）。
 - 类型推断用 `Schemastery.TypeT<typeof schema>`，**不是 zod 的 `z.infer`**（schemastery 没有 `z.infer`，会报 `'z' only refers to a type`）。
 - `settings.get(ns)` 返回 resolved value；`settings.mutate(ns, ops: {op:'set'|'unset', path:string[]}[], expectedRevision?)` 返回 `Promise<void>`；`settings.writable` 是布尔。
-- `ctx.connection` 类型由 `import type {} from '@deepseek-ai/dsh-client-connection'` 激活（仅 host 侧 GUI 桥接需要，编译期生效，运行时宿主注入）。
+- `ctx.connection` 类型由 `import type {} from '@deepseek-ai/dsh-client-connection'` 激活。注意：**host 侧已不再需要它做 GUI 桥接**（自建 RPC 通道在 0.1.5 废弃，见 CLIENT_BUNDLE.md）；声名列在 `dsh.client.inject` 里即可，client 侧运行时由宿主注入。
+- 若插件内 `import` 了 `react` 等种子包的类型（client bundle 用），也放 `devDependencies` + `peerDependencies`，不要进 `dependencies`。

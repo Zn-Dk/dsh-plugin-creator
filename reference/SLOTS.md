@@ -11,23 +11,35 @@
 ## 注册形态（真实签名）
 
 ```js
+// 编辑自己 settings namespace 的插件卡片 → configurable-plugins tab（rc.1 起首选）
+ctx.slots.inject('settings.plugin.item', () => ctx.slots.register({
+  name: 'settings.plugin.item',
+  id: '<plugin-name>',        // 有 id 的槽：排序/路由用
+  key: '<settings-namespace>', // keyed：tab 按它和 Host 注册的 namespace 配对
+  order: 30,                  // 有 order 的槽：决定 tab 内顺序，参考其他插件避免撞车
+  locale: '<locale-ns>',      // 可选：卡片文案的 locale 命名空间
+}, SettingsCard))             // ⚠️ 直接传组件函数本身
+
+// 想要一个完整设置分区页（官方 models 卡仍在用）
 ctx.slots.inject('settings.section', () => ctx.slots.register({
   name: 'settings.section',
-  id: '<plugin-name>',   // 有 id 的槽：路由/排序用
-  order: 20.5,           // 有 order 的槽：决定顺序，参考官方插件避免撞车
-  label: () => '<显示名>', // label 是函数：locale 变化时重注册刷新
-  inject: () => ({ connection: ctx.connection }),
-}, SettingsCard))        // ⚠️ 直接传组件函数本身
+  id: '<plugin-name>',
+  order: 20.5,
+  label: () => '<显示名>',     // label 是函数：locale 变化时重注册刷新
+  inject: () => ({ api }),     // 只传组件真正需要的值（不要再传 connection）
+}, SettingsSection))
 ```
 
-- `keyed` 槽用 `key` 字段（如 `tool.call.toolview` 的 `key: 'bash'`）分发到对应工具名/命令名。
+- `keyed` 槽用 `key` 字段（如 `tool.call.toolview` 的 `key: 'bash'`、`settings.plugin.item` 的 `key: '<ns>'`）分发。
 - `chain` 槽支持 selector 路由替换（如 `conversation.composer`）。
+- owner props 为空的槽（`settings.plugin.item` 即如此）不注入任何值——卡片要么闭包 `api`，要么用模块级 ctx 引用自己读服务。
 
 ## 通用 GUI 场景 → 首选 slot
 
 | 你要做的 GUI | 首选 slot | kind/scope | 备注 |
 |---|---|---|---|
-| 插件设置卡片（最常用） | `settings.section` | list / root | 本 skill 第 5 步的默认路径 |
+| 插件设置卡片（最常用） | `settings.plugin.item` | keyed / root | **rc.1 起首选**：key = 自己的 settings namespace，落在官方 configurable-plugins tab |
+| 完整设置分区页 | `settings.section` | list / root | 官方 models 卡仍在用；要一个独立分区页时才选它 |
 | Plugins 设置页里加一个 tab | `settings.plugins.tab` | list / root | 插件清单类 UI 用它 |
 | General 设置项 | `settings.general.item` | list / root | 由 locale 包声明类型 |
 | 会话头部加操作按钮 | `conversation.session.header.actions` | list / session | 增量添加，不替换头部 |
@@ -52,9 +64,16 @@ ctx.slots.inject('settings.section', () => ctx.slots.register({
 | `settings.action` | list | root |
 | `settings.close` | single | root |
 | `settings.section` | list | root |
+| `settings.plugin.item` | keyed | root |
 | `settings.plugins.tab` | list | root |
 | `settings.onboarding` | list | root |
 | `settings.general.item` | list | root |
+
+> `settings.plugin.item` 由 `@deepseek-ai/dsh-client-ui-settings-plugins` 的
+> `src/client/slot-contract.ts` 声明（`{ kind: 'keyed', scope: 'root' }`），
+> owner props 为空——tab 只按 key 分发，卡片内容完全由插件自绘。
+> 第三方插件要注册它，需在 `dsh.client.inject` 里声明
+> `@deepseek-ai/dsh-client-ui-settings-plugins` 与 `@deepseek-ai/dsh-api-remotes`。
 
 ### conversation 域（ui-conversation/src/client/contract/slots.ts，含合并声明）
 
@@ -109,4 +128,4 @@ ctx.slots.inject('settings.section', () => ctx.slots.register({
 | `conversation.hero.workspace.directoryFlow` | single | root |
 | `sidebar.workspaces.directoryFlow` | single | root |
 
-> ⚠️ `settings.plugin.item` 在测试里作为 keyed slot 出现，但 SlotMap 类型声明归属插件 inventory/配置域，使用前以对应包 d.ts 为准。`t.host` 是运行时测试用的 slot，不是插件注入目标，勿用。
+> `t.host` 是运行时测试用的 slot，不是插件注入目标，勿用。

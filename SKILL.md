@@ -50,7 +50,7 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 - [ ] 第 2 步：脚手架 package.json + tsconfig.json + cordis.patch.yml（见 templates/；默认 TS）
 - [ ] 第 3 步：TDD 写纯逻辑层（引擎/适配层/编排层），装配层最后写
 - [ ] 第 4 步：Host 侧装配（事件监听、工具、命令、settings namespace）
-- [ ] 第 5 步：（如需 GUI）Client 侧装配（settings RPC 通道 + settings.section 卡片）
+- [ ] 第 5 步：（如需 GUI）Client 侧装配（`ctx.remote.*` 读写 Host 服务 + 设置卡片 slot；**不自建 RPC 通道**）
 - [ ] 第 6 步：安装验证（pnpm install → pnpm build → pnpm pack + tgz 安装，不用 link:）
 - [ ] 第 7 步：code review（至少 2 轮，见「必查清单」）
 - [ ] 第 8 步：CHANGELOG + 版本号 + commit
@@ -85,7 +85,7 @@ DSH 插件永远是 **Host 半区**（`lib/index.js`，Node，cordis 插件）+ 
 **完整细节见 [reference/CLIENT_BUNDLE.md](reference/CLIENT_BUNDLE.md)；slot 选型与 GUI 交互分区清单见 [reference/SLOTS.md](reference/SLOTS.md)。**
 
 一句话摘要：
-- `ctx.settings.register` 只解决 Host 侧持久化，**不会**自动出现在 Web 设置页；要有 GUI 卡片，还要 Client 侧用 `ctx.slots.inject("settings.section", ...)` 注册卡片。
+- `ctx.settings.register` 只解决 Host 侧持久化，**不会**自动出现在 Web 设置页；要有 GUI 卡片，还要 Client 侧注册 slot：**编辑自己 namespace 的插件卡片用 `ctx.slots.inject("settings.plugin.item", ...)`（keyed，key = namespace，落在官方 configurable-plugins tab）**；想要一个完整设置分区页才用 `settings.section`（官方 models 卡仍在用）。
 - **读写 Host 服务走 `ctx.remote.*`（强制）**：`ctx.remote.credentials` / `ctx.remote.settings` / `ctx.remote.llm` 由 api-gateway 自动暴露，**不需要自己接 RPC 管子**。必须在 `inject` 里显式声明用到的每个 `remote.*` 命名空间（如 `["slots","connection","remote","remote.credentials","remote.settings"]`），漏声明就会 `undefined` → 一交互就崩。**`ctx.connection` 没有 `.api` 字段**，`ctx.get('connection').api.*` 是失效写法。
 - Client bundle 是 `window.__ModuleLoader__.load({ id, factory: require => {...} })` 格式，**只能 require 种子白名单（共 7 词）**：`react`、`react/jsx-runtime`、`react-dom`、`react-dom/client`、`@deepseek-ai/cordis`、`@deepseek-ai/dsh-client-ui-slots`、`@deepseek-ai/dsh-client-ui-primitives`。不能 import 任意 npm 包。
 - slot 注册要传**组件函数本身**，不要用 `() => jsx(Component, null)` 包一层——那样面板会空白或崩溃。

@@ -45,6 +45,38 @@ export function apply(ctx, config) {
 
 `StreamChunk` 事件词汇（`block-start` / `text-delta` / `reasoning-delta` / `tool-call-delta` / `block-end` / `usage` / `finish`）由 harness 定义，**不要自创**；`blockType` 是 `ContentBlockType`（`'text' | 'reasoning' | 'tool-call' | ...`），字符串字面量需要断言。
 
+## 踩坑 0（rc.1 新增，最隐蔽）：`ResolvedPiAiProviderProfile.modelErrors` 是必需字段
+
+**症状**：插件树加载正常、Models 页能看到 provider，但**一选该 provider 的模型调用就炸**：
+
+```
+TypeError: Cannot read properties of undefined (reading 'get')
+```
+
+**根因**：`@deepseek-ai/dsh-llm-pi-ai` 的 `ResolvedPiAiProviderProfile`（`packages/llm/llm-pi-ai/src/config.ts`）在 0.1.5 起新增**必需**字段：
+
+```ts
+/** Per-model failures reported before attempting a request. */
+modelErrors: ReadonlyMap<string, string>
+```
+
+消费点在 `adapter.ts` 的 `modelOf()`：`profile.modelErrors.get(model)` 直接调用、无守卫。按 0.1.2 接口写的插件构造 profile 时没带这个字段 → 运行时就炸（**编译期不报错**，因为插件普遍用 `as unknown as ResolvedPiAiProviderProfile` 跨 pi-ai 双副本）。
+
+**修法**：自己建模型目录的插件，构造 profile 时补一个空 map：
+
+```ts
+const profile = {
+  provider, displayName, apiKeyEnv, reasoning,
+  streamIdleTimeoutMs, maxRequestImageBytes, requestImagePixelBudget, requestImageMaxBytes,
+  retryPolicy: resolveRetryPolicy(undefined, '<plugin>: retryPolicy'),
+  configuredMaxTokens: new Map<string, number>(),
+  modelErrors: new Map<string, string>(),   // ← rc.1 必需；无 per-model 失败要申报就空 map
+  piProvider: providerFor(endpoint, models),
+}
+```
+
+**判断法则**：升级 harness 后若 provider 插件「能加载、能列模型、一调用就 `undefined.get`」，先对照目标版本的 `ResolvedPiAiProviderProfile` 逐字段核对必需字段——**升级审计要覆盖「运行时消费的接口面」，不只是「能否加载」**。
+
 ## 踩坑 1（最严重）：attachments 服务必须注入，不能传 `undefined`
 
 **症状**：纯文本对话正常，**一发图就失败**，错误是 `attachments service is unavailable; cannot read image bytes`。

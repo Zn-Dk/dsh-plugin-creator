@@ -1,11 +1,14 @@
 /**
  * <plugin-name> 客户端 bundle。
- * 通过 settings.section slot 注册一个设置卡片。
+ * 通过 settings.plugin.item slot 注册设置卡片，经 ctx.remote.* 读写 Host。
  *
  * 组件复用官方 @deepseek-ai/dsh-client-ui-primitives（见 reference/UI_COMPONENTS.md）：
  * 输入框用 Input、按钮用 Button、悬浮提示用 Tooltip、弹窗用 Modal——
  * 官方没有对应物时才允许自写，且必须在代码注释或 review 里记录理由。
  * 排版对齐 DSH Web 宿主设置卡片的视觉规范，见 reference/CLIENT_BUNDLE.md。
+ *
+ * ⚠️ 不要自建 RPC 通道（connection.rpc.handle + connection.rpc.call 已在 0.1.5 废弃，
+ *    症状是每个调用 HTTP 405）。读写一律走 ctx.remote.*。
  */
 window.__ModuleLoader__.load({
   id: "<plugin-name>",
@@ -16,7 +19,7 @@ window.__ModuleLoader__.load({
     const jsx = require("react/jsx-runtime").jsx
     const { Input, Button } = require("@deepseek-ai/dsh-client-ui-primitives")
 
-    const SETTINGS_CHANNEL = "/<plugin-name>-settings"
+    const SETTINGS_NAMESPACE = "<settings-namespace>"
 
     // 只保留「排版规范」类样式（从宿主设置卡片提取，见 CLIENT_BUNDLE.md）。
     // 控件外观交给官方组件，不要在这里复刻 input/button 的皮肤。
@@ -37,7 +40,7 @@ window.__ModuleLoader__.load({
 
     if (typeof document !== "undefined") {
       const tagId = "<plugin-name>/src/client.css"
-      if (document.querySelector("style[data-plugin-css=" + JSON.stringify(tagId) + "]") === null) {
+      if (document.querySelector('style[data-plugin-css=' + JSON.stringify(tagId) + ']') === null) {
         const tag = document.createElement("style")
         tag.dataset.pluginCss = tagId
         tag.textContent = css
@@ -64,26 +67,54 @@ window.__ModuleLoader__.load({
       })
     }
 
-    function SettingsCard({ connection }) {
-      const [snapshot, setSnapshot] = react.useState(null)
-      const [error, setError] = react.useState(null)
+    // 模块级 ctx 引用：settings.plugin.item 的 owner props 是空的（tab 不注入值），
+    // 卡片自己从这里取 remote/locale 服务。
+    let ctxRef
+    function getCtx() { return ctxRef }
+
+    function SettingsCard() {
+      const [view, setView] = react.useState(undefined)
+      const [revision, setRevision] = react.useState(0)
+      const [error, setError] = react.useState(undefined)
+      const [reload, setReload] = react.useState(0)
 
       react.useEffect(() => {
-        connection.rpc.call(SETTINGS_CHANNEL, "get", {})
-          .then((res) => { if (res.ok) setSnapshot(res.value); else setError(res.error.message) })
-          .catch((e) => setError(String(e)))
-      }, [connection])
+        const remote = getCtx()?.remote
+        if (!remote || !remote.settings) return
+        let cancelled = false
+        setError(undefined)
+        remote.settings.describe().then((res) => {
+          if (cancelled) return
+          if (!res.ok) { setError(res.error.message); return }
+          // ⚠️ 形状：value 是 { namespaces: [...] } 包装对象，不是裸数组
+          const hit = (res.value.namespaces ?? []).find((n) => n.ns === SETTINGS_NAMESPACE)
+          if (hit === undefined) { setError("namespace not registered"); return }
+          setView(hit.value ?? {})
+          setRevision(typeof hit.revision === "number" ? hit.revision : 0)
+        }).catch((e) => { if (!cancelled) setError(String(e)) })
+        return () => { cancelled = true }
+      }, [reload])
 
-      const saveField = async (key, value) => {
-        const res = await connection.rpc.call(SETTINGS_CHANNEL, "mutate", {
-          ops: [{ op: "set", path: [key], value }],
-          ...(snapshot?.revision === undefined ? {} : { expectedRevision: snapshot.revision }),
-        })
-        if (res.ok) setSnapshot(res.value); else setError(res.error.message)
+      // 写：位置参数 (ns, ops, expectedRevision)，返回 {ok, value|error}
+      const saveField = (key, value) => {
+        const remote = getCtx()?.remote
+        if (!remote || !remote.settings) return
+        remote.settings.mutate(SETTINGS_NAMESPACE, [{ op: "set", path: [key], value }], revision)
+          .then((res) => {
+            if (res.ok) setReload((n) => n + 1)   // 重读：revision 已移动，下次写要带新值
+            else setError(res.error.message)
+          })
+          .catch((e) => setError(String(e)))
       }
 
-      if (snapshot?.status === "unavailable") {
-        return jsx("p", { className: "plg_status", children: "设置通道不可用：宿主未加载本插件。" })
+      if (view === undefined) {
+        return jsx("div", { className: "plg_page", children: [
+          jsx("p", { className: error === undefined ? "plg_pending" : "plg_status",
+            children: error === undefined ? "等待宿主…" : "加载设置失败: " + error }),
+          error === undefined ? null : jsx(Button, {
+            variant: "outline", onClick: () => setReload((n) => n + 1), children: "重试",
+          }),
+        ] })
       }
 
       // TODO: 按你的字段列表渲染 .plg_pageHeader / .plg_section / .plg_fieldGrid。
@@ -100,7 +131,7 @@ window.__ModuleLoader__.load({
           jsx("div", { className: "plg_fieldGrid", children: [
             jsx("label", { children: [
               "<字段标签>",
-              jsx(FieldInput, { field: { key: "<field-key>", isNumber: false }, value: undefined, disabled: false, onCommit: saveField }),
+              jsx(FieldInput, { field: { key: "<field-key>", isNumber: false }, value: view["<field-key>"], disabled: false, onCommit: saveField }),
               jsx("small", { children: "<字段说明>" }),
             ] }),
           ] }),
@@ -110,16 +141,36 @@ window.__ModuleLoader__.load({
       ] })
     }
 
-    const inject = ["slots", "connection"]
+    // 每个用到的 remote 命名空间都要显式声明，否则 cordis 解析成 undefined
+    const inject = ["slots", "connection", "locale", "remote", "remote.credentials", "remote.settings"]
 
     function apply(ctx) {
-      ctx.slots.inject("settings.section", () => ctx.slots.register({
-        name: "settings.section",
+      ctxRef = ctx
+      const remote = ctx.remote
+      if (!remote || !remote.settings) return   // 防御性守卫
+
+      // 首选：编辑自己 namespace 的插件卡片 → 官方 configurable-plugins tab
+      ctx.slots.inject("settings.plugin.item", () => ctx.slots.register({
+        name: "settings.plugin.item",
         id: "<plugin-name>",
-        order: 20.5, // 调整避免与其他插件撞车
-        label: () => "<插件显示名>",
-        inject: () => ({ connection: ctx.connection }),
-      }, SettingsCard)) // ⚠️ 传函数本身，不要 () => jsx(SettingsCard, null) 包一层
+        key: SETTINGS_NAMESPACE,   // keyed：tab 按它和 Host 注册的 namespace 配对
+        order: 30,                 // 调整避免与其他插件撞车
+        locale: "<locale-ns>",     // 可选：卡片文案的 locale 命名空间
+      }, SettingsCard))           // ⚠️ 传函数本身，不要 () => jsx(SettingsCard, null) 包一层
+
+      // 推送式失效：Host / 其他卡片 / CLI 改了文档时刷新
+      ctx.effect(() => {
+        const disposers = []
+        if (typeof remote.$on === "function") {
+          for (const event of ["settings/document-updated", "credentials/reference-updated"]) {
+            try {
+              const d = remote.$on(event, () => { /* 触发卡片重读 */ })
+              if (typeof d === "function") disposers.push(d)
+            } catch { /* 宿主没有该面就退化为挂载时刷新 */ }
+          }
+        }
+        return () => { for (const d of disposers) if (typeof d === "function") d() }
+      }, "<plugin-name>: pushed invalidations")
     }
 
     bundleModule.exports.apply = apply

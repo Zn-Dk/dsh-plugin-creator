@@ -8,8 +8,8 @@
 
 ```
 Host settings namespace  (ctx.settings.register)
-        ↑↓ 由 api-gateway 自动暴露
-Client 设置卡片           (ctx.slots.register 'settings.section')
+        ↑↓ 由 api-gateway 自动暴露（/api 单通道）
+Client 设置卡片           (ctx.slots.register 'settings.plugin.item' | 'settings.section')
         ↑↓ 直接调 ctx.remote.settings / ctx.remote.credentials
 ```
 
@@ -98,21 +98,35 @@ window.__ModuleLoader__.load({
     const { Tooltip } = require("@deepseek-ai/dsh-client-ui-primitives") // ✅ 种子词（官方组件库）
     // require("lodash") / require("@deepseek-ai/dsh-client-web-react") 等 —— ❌ 不允许（非种子词，构建时不会打包进去）
 
-    function SettingsCard({ api }) { /* React 组件，用 api.credentials / api.settings */ }
+    function SettingsCard() {
+      // 卡片组件自己读服务：用模块级 ctx 引用（settings.plugin.item 的 owner
+      // props 是空的，tab 不注入任何值），或在 apply 里闭包 api 后用 inject 传。
+      const remote = getCtx().remote
+      // ...用 remote.credentials / remote.settings
+    }
 
     function apply(ctx) {
+      ctxRef = ctx
       const remote = ctx.remote
       if (!remote || !remote.credentials || !remote.settings) return
-      const api = { credentials: remote.credentials, settings: remote.settings, llm: remote.llm }
 
-      ctx.slots.inject("settings.section", () => ctx.slots.register({
-        name: "settings.section",
+      // 首选：编辑自己 namespace 的插件卡片 → configurable-plugins tab
+      ctx.slots.inject("settings.plugin.item", () => ctx.slots.register({
+        name: "settings.plugin.item",
         id: "my-plugin",
-        order: 20.5, // 决定在设置页侧边栏的排序位置，参考其他插件的 order 避免撞车
-        label: () => "我的插件",
-        // inject 只传组件真正需要的值；把 api 闭包进去即可，不必再传 connection
-        inject: () => ({ api }),
-      }, SettingsCard)) // ⚠️ 直接传函数本身，不要用 () => jsx(SettingsCard, null) 包一层
+        key: "<settings-namespace>",   // keyed：tab 按它和 Host namespace 配对
+        order: 30,                     // 决定 tab 内排序，参考其他插件避免撞车
+        locale: "<locale-ns>",         // 可选：卡片文案的 locale 命名空间
+      }, SettingsCard))                // ⚠️ 直接传函数本身，不要 () => jsx(SettingsCard, null) 包一层
+
+      // 备选：想要一个完整设置分区页（官方 models 卡仍在用）
+      // ctx.slots.inject("settings.section", () => ctx.slots.register({
+      //   name: "settings.section",
+      //   id: "my-plugin",
+      //   order: 20.5,
+      //   label: () => "我的插件",
+      //   inject: () => ({ api }),    // 只传组件真正需要的值
+      // }, SettingsSection))
     }
 
     bundleModule.exports.apply = apply
@@ -126,6 +140,16 @@ window.__ModuleLoader__.load({
 **踩坑记录**：
 - slot 注册若写成 `register({...}, () => jsx(Component, null))`，面板会渲染空白甚至崩溃——必须直接传组件函数：`register({...}, Component)`。
 - `inject` 数组漏声明 `remote.*` 时，`ctx.remote.credentials` 是 `undefined`，组件一渲染/一点击就抛 `Cannot read properties of undefined`。**症状是「装了插件但一交互就崩」**。
+- 形状契约（2026-09-24 实测，曾在此栽过）：`settings.describe()` 的 value 是 **`{ namespaces: [...] }` 包装对象**，`credentials.describe()` 的 value 是 **按引用键控的 map**（`value[ref]`）——**都不是裸数组**，别把 `.find()` / `[0]` 直接使上去。
+
+## ⚠️ 自建 RPC 通道已在 0.1.5 废弃（真实事故）
+
+**不要**再写「Host 侧 `connection.rpc.handle(channel, ...)` + Client 侧 `connection.rpc.call(channel, ...)`」的自建通道。rc.1 起：
+
+- 官方 client 插件已全部迁到 `ctx.remote.*` + `/api` 单通道；`connection.rpc.handle` 只剩网关内部使用。
+- 自建通道的症状极具误导性：**插件树加载正常、GUI 不报 import 错，但每个调用落到静态 fallback 返回 HTTP 405**（`transport failure for /<channel>/<endpoint>: HTTP 405`）。
+- 根因是静默的：注册内部依赖 `owner.webServer`，而插件 ctx 未声明该服务时 cordis 的 reflect proxy 直接抛错，异常被 effect runner 吞掉、无任何日志。
+- 判断法则：**看到自定义 channel 的 405，不要修通道，把 client 半重写成 `ctx.remote.*`**——重构比修复快（用户原话）。参照实现：`dsh-llm-stepfun` 的 `src/client.ts`（与 harness `packages/client/ui-settings-models/src/client/` 同构）。
 
 ## GUI 排版：不要凭感觉写 inline style
 
